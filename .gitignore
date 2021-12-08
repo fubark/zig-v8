@@ -1,0 +1,4 @@
+/zig-cache/
+/tools/ninja_gn_binaries*
+/v8-out/
+/gclient/
