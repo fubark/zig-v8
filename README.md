@@ -23,7 +23,7 @@ git clone https://github.com/fubark/zig-v8.git
 
 # Pull submodules.
 cd zig-v8
-git submodule update --recursive
+git submodule update --init --recursive
 
 # Pull v8 source
 zig build get-v8
