@@ -3,29 +3,36 @@
 typedef char bool;
 typedef uintptr_t usize;
 typedef struct CreateParams CreateParams;
-typedef struct Value Value;
+typedef struct Isolate Isolate;
+typedef struct String String;
+typedef struct Context Context;
+// Super type.
+typedef void Value;
 typedef struct SharedPtr {
     usize a;
     usize b;
 } SharedPtr;
-
-// V8
-void v8__V8__Initialize();
-int v8__V8__Dispose();
-void v8__V8__ShutdownPlatform();
+typedef uintptr_t IntAddress; // v8::internal::Address
 
 // Platform
 typedef struct Platform Platform;
 Platform* v8__Platform__NewDefaultPlatform(int thread_pool_size, int idle_task_support);
 void v8__V8__InitializePlatform(Platform* platform);
 void v8__Platform__DELETE(Platform* platform);
+bool v8__Platform__PumpMessageLoop(Platform* platform, Isolate* isolate, bool wait_for_work);
+
+// V8
+void v8__V8__Initialize();
+int v8__V8__Dispose();
+void v8__V8__ShutdownPlatform();
+const char* v8__V8__GetVersion();
 
 // Isolate
-typedef struct Isolate Isolate;
 Isolate* v8__Isolate__New(CreateParams* params);
 void v8__Isolate__Enter(Isolate* isolate);
 void v8__Isolate__Exit(Isolate* isolate);
 void v8__Isolate__Dispose(Isolate* isolate);
+Context* v8__Isolate__GetCurrentContext(Isolate* isolate);
 
 typedef struct StartupData StartupData;
 
@@ -77,15 +84,40 @@ typedef struct HandleScope {
 void v8__HandleScope__CONSTRUCT(HandleScope* buf, Isolate* isolate);
 void v8__HandleScope__DESTRUCT(HandleScope* scope);
 
+// Message
+typedef struct Message Message;
+const String* v8__Message__GetSourceLine(const Message* self, const Context* context);
+const Value* v8__Message__GetScriptResourceName(const Message* self);
+int v8__Message__GetLineNumber(const Message* self, const Context* context);
+int v8__Message__GetStartColumn(const Message* self);
+int v8__Message__GetEndColumn(const Message* self);
+
+// TryCatch
+typedef struct TryCatch {
+    void* isolate_;
+    struct TryCatch* next_;
+    void* exception_;
+    void* message_obj_;
+    IntAddress js_stack_comparable_address_;
+    usize flags;
+} TryCatch;
+usize v8__TryCatch__SIZEOF();
+void v8__TryCatch__CONSTRUCT(TryCatch* buf, Isolate* isolate);
+void v8__TryCatch__DESTRUCT(TryCatch* self);
+const Value* v8__TryCatch__Exception(const TryCatch* self);
+const Message* v8__TryCatch__Message(const TryCatch* self);
+bool v8__TryCatch__HasCaught(const TryCatch* self);
+const Value* v8__TryCatch__StackTrace(const TryCatch* self, const Context* context);
+
 // Context
 typedef struct Context Context;
 typedef struct ObjectTemplate ObjectTemplate;
 Context* v8__Context__New(Isolate* isolate, ObjectTemplate* global_tmpl, Value* global_obj);
 void v8__Context__Enter(Context* context);
 void v8__Context__Exit(Context* context);
+Isolate* v8__Context__GetIsolate(const Context* context);
 
 // String
-typedef struct String String;
 typedef enum NewStringType {
     /**
      * Create a new string, always allocating new storage memory.
@@ -116,8 +148,23 @@ int v8__String__Utf8Length(const String* str, Isolate* isolate);
 // Value
 String* v8__Value__ToString(const Value* val, const Context* ctx);
 
+// ScriptOrigin
+typedef struct ScriptOriginOptions {
+    const int flags_;
+} ScriptOriginOptions;
+typedef struct ScriptOrigin {
+    Isolate* isolate_;
+    Value* resource_name_;
+    int resource_line_offset_;
+    int resource_column_offset_;
+    ScriptOriginOptions options_;
+    int script_id_;
+    Value* source_map_url_;
+    void* host_defined_options_;
+} ScriptOrigin;
+void v8__ScriptOrigin__CONSTRUCT(ScriptOrigin* buf, Isolate* isolate, const Value* resource_name);
+
 // Script
 typedef struct Script Script;
-typedef struct ScriptOrigin ScriptOrigin;
 Script* v8__Script__Compile(const Context* context, const String* src, const ScriptOrigin* origin);
 Value* v8__Script__Run(const Script* script, const Context* context);
