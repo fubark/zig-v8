@@ -4,8 +4,14 @@ const c = @cImport({
     @cInclude("binding.h");
 });
 
-pub const String = c.String;
 pub const Value = c.Value;
+pub const PropertyAttribute = struct {
+    pub const None = c.None;
+};
+
+// Currently, user callback functions passed into FunctionTemplate will need to have this declared as a param and then
+// converted to FunctionCallbackInfo to get a nicer interface.
+pub const RawFunctionCallbackInfo = c.FunctionCallbackInfo;
 
 pub const Platform = struct {
     const Self = @This();
@@ -158,6 +164,7 @@ pub const Context = struct {
 
     handle: *c.Context,
 
+    /// [V8]
     /// Creates a new context and returns a handle to the newly allocated
     /// context.
     ///
@@ -174,9 +181,13 @@ pub const Context = struct {
     /// created by a previous call to Context::New with the same global
     /// template. The state of the global object will be completely reset
     /// and only object identify will remain.
-    pub fn init(isolate: Isolate, global_tmpl: ?*c.ObjectTemplate, global_obj: ?*c.Value) Self {
+    pub fn init(isolate: Isolate, global_tmpl: ?ObjectTemplate, global_obj: ?*c.Value) Self {
         return .{
-            .handle = c.v8__Context__New(isolate.handle, global_tmpl, global_obj).?,
+            .handle = c.v8__Context__New(
+                isolate.handle,
+                if (global_tmpl != null) global_tmpl.?.handle else null,
+                global_obj
+            ).?,
         };
     }
 
@@ -202,6 +213,88 @@ pub const Context = struct {
         return c.v8__Context__GetIsolate(self);
     }
 };
+
+pub const FunctionCallbackInfo = struct {
+    const Self = @This();
+
+    handle: *const c.FunctionCallbackInfo,
+
+    pub fn initFromV8(val: ?*const c.FunctionCallbackInfo) Self {
+        return .{
+            .handle = val.?,
+        };
+    }
+
+    pub fn length(self: Self) u32 {
+        return @intCast(u32, c.v8__FunctionCallbackInfo__Length(self.handle));
+    }
+
+    pub fn getIsolate(self: Self) Isolate {
+        return .{
+            .handle = c.v8__FunctionCallbackInfo__GetIsolate(self.handle).?,
+        };
+    }
+
+    pub fn getArg(self: Self, i: u32) *const Value {
+        return c.v8__FunctionCallbackInfo__INDEX(self.handle, @intCast(c_int, i)).?;
+    }
+};
+
+pub const FunctionTemplate = struct {
+    const Self = @This();
+
+    handle: *const c.FunctionTemplate,
+
+    pub fn initDefault(isolate: Isolate, callback: c.FunctionCallback) Self {
+        return .{
+            .handle = c.v8__FunctionTemplate__New__DEFAULT(isolate.handle, callback).?,
+        };
+    }
+};
+
+pub const ObjectTemplate = struct {
+    const Self = @This();
+
+    handle: *c.ObjectTemplate,
+
+    pub fn initDefault(isolate: Isolate) Self {
+        return .{
+            .handle = c.v8__ObjectTemplate__New__DEFAULT(isolate.handle).?,
+        };
+    }
+
+    pub fn init(isolate: Isolate, constructor: *const c.FunctionTemplate) Self {
+        return .{
+            .handle = c.v8__ObjectTemplate__New(isolate.handle, constructor).?,
+        };
+    }
+
+    pub fn set(self: Self, key: anytype, value: anytype, attr: c.PropertyAttribute) void {
+        c.v8__Template__Set(getTemplateHandle(self), getNameHandle(key), getDataHandle(value), attr);
+    }
+};
+
+inline fn getNameHandle(val: anytype) *const c.Name {
+    return @ptrCast(*const c.Name, comptime switch (@TypeOf(val)) {
+        *const c.String => val,
+        String => val.handle,
+        else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Name", .{@typeName(@TypeOf(val))})),
+    });
+}
+
+inline fn getTemplateHandle(val: anytype) *const c.Template {
+    return @ptrCast(*const c.Template, comptime switch (@TypeOf(val)) {
+        ObjectTemplate => val.handle,
+        else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Template", .{@typeName(@TypeOf(val))})),
+    });
+}
+
+inline fn getDataHandle(val: anytype) *const c.Data {
+    return @ptrCast(*const c.Data, comptime switch (@TypeOf(val)) {
+        FunctionTemplate => val.handle,
+        else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Data", .{@typeName(@TypeOf(val))})),
+    });
+}
 
 pub const Message = struct {
     const Self = @This();
@@ -282,32 +375,52 @@ pub const ScriptOrigin = struct {
     }
 };
 
-pub fn createUtf8String(isolate: Isolate, str: []const u8) *const c.String {
-    return c.v8__String__NewFromUtf8(isolate.handle, str.ptr, c.kNormal, @intCast(c_int, str.len)).?;
-}
+pub const String = struct {
+    const Self = @This();
 
-/// Null indicates there was an compile error.
-pub fn compileScript(ctx: Context, src: *const c.String, origin: ?ScriptOrigin) ?*const c.Script {
-    return c.v8__Script__Compile(ctx.handle, src, if (origin != null) &origin.?.inner else null);
-}
+    handle: *const c.String,
 
-/// Null indicates a runtime error.
-pub fn runScript(ctx: Context, script: *const c.Script) ?*const c.Value {
-    return c.v8__Script__Run(script, ctx.handle);
-}
+    pub fn initUtf8(isolate: Isolate, str: []const u8) Self {
+        return .{
+            .handle = c.v8__String__NewFromUtf8(isolate.handle, str.ptr, c.kNormal, @intCast(c_int, str.len)).?,
+        };
+    }
 
-pub fn writeUtf8String(str: *const c.String, isolate: Isolate, buf: []const u8) u32 {
-    const options = c.NO_NULL_TERMINATION | c.REPLACE_INVALID_UTF8;
-    // num chars is how many utf8 characters are actually written and the function returns how many bytes were written.
-    var nchars: c_int = 0;
-    // TODO: Return num chars
-    return @intCast(u32, c.v8__String__WriteUtf8(str, isolate.handle, buf.ptr, @intCast(c_int, buf.len), &nchars, options));
-}
+    pub fn lenUtf8(self: Self, isolate: Isolate) u32 {
+        return @intCast(u8, c.v8__String__Utf8Length(self.handle, isolate.handle));
+    }
 
-pub fn valueToString(ctx: Context, val: *const c.Value) *const c.String {
-    return c.v8__Value__ToString(val, ctx.handle).?;
-}
+    pub fn writeUtf8(self: String, isolate: Isolate, buf: []const u8) u32 {
+        const options = c.NO_NULL_TERMINATION | c.REPLACE_INVALID_UTF8;
+        // num chars is how many utf8 characters are actually written and the function returns how many bytes were written.
+        var nchars: c_int = 0;
+        // TODO: Return num chars
+        return @intCast(u32, c.v8__String__WriteUtf8(self.handle, isolate.handle, buf.ptr, @intCast(c_int, buf.len), &nchars, options));
+    }
+};
 
-pub fn utf8Len(isolate: Isolate, str: *const c.String) u32 {
-    return @intCast(u8, c.v8__String__Utf8Length(str, isolate.handle));
+pub const Script = struct {
+    const Self = @This();
+
+    handle: *const c.Script,
+
+    /// Null indicates there was an compile error.
+    pub fn compile(ctx: Context, src: String, origin: ?ScriptOrigin) ?Self {
+        if (c.v8__Script__Compile(ctx.handle, src.handle, if (origin != null) &origin.?.inner else null)) |handle| {
+            return Self{
+                .handle = handle,
+            };
+        } else return null;
+    }
+
+    /// Null indicates a runtime error.
+    pub fn run(self: Self, ctx: Context) ?*const c.Value {
+        return c.v8__Script__Run(self.handle, ctx.handle);
+    }
+};
+
+pub fn valueToString(ctx: Context, val: *const c.Value) String {
+    return .{
+        .handle = c.v8__Value__ToString(val, ctx.handle).?,
+    };
 }

@@ -38,13 +38,13 @@ test {
     defer context.exit();
 
     // Create a string containing the JavaScript source code.
-    const source = v8.createUtf8String(isolate, "'Hello' + ', World! 🍏🍓' + Math.sin(Math.PI/2)");
+    const source = v8.String.initUtf8(isolate, "'Hello' + ', World! 🍏🍓' + Math.sin(Math.PI/2)");
 
     // Compile the source code.
-    const script = v8.compileScript(context, source, null).?;
+    const script = v8.Script.compile(context, source, null).?;
 
     // Run the script to get the result.
-    const value = v8.runScript(context, script).?;
+    const value = script.run(context).?;
 
     // Convert the result to an UTF8 string and print it.
     const res = valueToRawUtf8Alloc(t.allocator, isolate, context, value);
@@ -56,8 +56,8 @@ test {
 
 pub fn valueToRawUtf8Alloc(alloc: std.mem.Allocator, isolate: v8.Isolate, ctx: v8.Context, val: *const v8.Value) []const u8 {
     const str = v8.valueToString(ctx, val);
-    const len = v8.utf8Len(isolate, str);
+    const len = str.lenUtf8(isolate);
     const buf = alloc.alloc(u8, len) catch unreachable;
-    _ = v8.writeUtf8String(str, isolate, buf);
+    _ = str.writeUtf8(isolate, buf);
     return buf;
 }
