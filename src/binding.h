@@ -17,11 +17,11 @@ typedef uintptr_t IntAddress; // v8::internal::Address
 // Platform
 typedef struct Platform Platform;
 Platform* v8__Platform__NewDefaultPlatform(int thread_pool_size, int idle_task_support);
-void v8__V8__InitializePlatform(Platform* platform);
 void v8__Platform__DELETE(Platform* platform);
 bool v8__Platform__PumpMessageLoop(Platform* platform, Isolate* isolate, bool wait_for_work);
 
 // V8
+void v8__V8__InitializePlatform(Platform* platform);
 void v8__V8__Initialize();
 int v8__V8__Dispose();
 void v8__V8__ShutdownPlatform();
@@ -147,6 +147,49 @@ int v8__String__Utf8Length(const String* str, Isolate* isolate);
 
 // Value
 String* v8__Value__ToString(const Value* val, const Context* ctx);
+
+// Template
+typedef struct Template Template;
+typedef struct Name Name;
+typedef struct Data Data;
+typedef enum PropertyAttribute {
+    /** None. **/
+    None = 0,
+    /** ReadOnly, i.e., not writable. **/
+    ReadOnly = 1 << 0,
+    /** DontEnum, i.e., not enumerable. **/
+    DontEnum = 1 << 1,
+    /** DontDelete, i.e., not configurable. **/
+    DontDelete = 1 << 2
+} PropertyAttribute;
+void v8__Template__Set(
+    const Template* self,
+    const Name* key,
+    const Data* value,
+    PropertyAttribute attr);
+
+// FunctionCallbackInfo
+typedef struct FunctionCallbackInfo FunctionCallbackInfo;
+Isolate* v8__FunctionCallbackInfo__GetIsolate(
+    const FunctionCallbackInfo* self);
+int v8__FunctionCallbackInfo__Length(
+    const FunctionCallbackInfo* self);
+const Value* v8__FunctionCallbackInfo__INDEX(
+    const FunctionCallbackInfo* self, int i);
+
+// FunctionTemplate
+typedef struct FunctionTemplate FunctionTemplate;
+typedef void (*FunctionCallback)(const FunctionCallbackInfo*);
+const FunctionTemplate* v8__FunctionTemplate__New__DEFAULT(
+    Isolate* isolate,
+    FunctionCallback callback_or_null);
+
+// ObjectTemplate
+typedef struct ObjectTemplate ObjectTemplate;
+ObjectTemplate* v8__ObjectTemplate__New__DEFAULT(
+    Isolate* isolate);
+ObjectTemplate* v8__ObjectTemplate__New(
+    Isolate* isolate, const FunctionTemplate* templ);
 
 // ScriptOrigin
 typedef struct ScriptOriginOptions {

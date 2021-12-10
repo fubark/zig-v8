@@ -180,9 +180,64 @@ int v8__String__Utf8Length(const v8::String& self, v8::Isolate* isolate) {
 
 // Value
 
-const v8::String* v8__Value__ToString(const v8::Value& val,
-                                      const v8::Context& ctx) {
+const v8::String* v8__Value__ToString(
+    const v8::Value& val, const v8::Context& ctx) {
+
     return maybe_local_to_ptr(val.ToString(ptr_to_local(&ctx)));
+}
+
+// Template
+
+void v8__Template__Set(
+    const v8::Template& self,
+    const v8::Name& key,
+    const v8::Data& value,
+    v8::PropertyAttribute attr) {
+
+    ptr_to_local(&self)->Set(ptr_to_local(&key), ptr_to_local(&value), attr);
+}
+
+// ObjectTemplate
+
+const v8::ObjectTemplate* v8__ObjectTemplate__New__DEFAULT(
+    v8::Isolate* isolate) {
+
+    return local_to_ptr(v8::ObjectTemplate::New(isolate));
+}
+
+const v8::ObjectTemplate* v8__ObjectTemplate__New(
+    v8::Isolate* isolate, const v8::FunctionTemplate& constructor) {
+
+    return local_to_ptr(v8::ObjectTemplate::New(isolate, ptr_to_local(&constructor)));
+}
+
+// FunctionCallbackInfo
+
+v8::Isolate* v8__FunctionCallbackInfo__GetIsolate(
+    const v8::FunctionCallbackInfo<v8::Value>& self) {
+
+    return self.GetIsolate();
+}
+
+int v8__FunctionCallbackInfo__Length(
+    const v8::FunctionCallbackInfo<v8::Value>& self) {
+
+    return self.Length();
+}
+
+const v8::Value* v8__FunctionCallbackInfo__INDEX(
+    const v8::FunctionCallbackInfo<v8::Value>& self, int i) {
+
+    return local_to_ptr(self[i]);
+}
+
+// FunctionTemplate
+
+const v8::FunctionTemplate* v8__FunctionTemplate__New__DEFAULT(
+    v8::Isolate* isolate,
+    v8::FunctionCallback callback_or_null) {
+
+    return local_to_ptr(v8::FunctionTemplate::New(isolate, callback_or_null));
 }
 
 // TryCatch

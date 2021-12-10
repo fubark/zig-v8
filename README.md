@@ -15,7 +15,7 @@ V8 is complex and although the build steps provided helps, there may be edge cas
 \* We'll add a size metric for an embedded V8 demo binary once we get the build to work on more platforms.
 
 ## Build
-uild times can be quite long but afterwards rerunning "zig build" should be incremental.
+Build times can be quite long but afterwards rerunning "zig build" should be incremental.
 
 ```sh
 # Clone the repo.
