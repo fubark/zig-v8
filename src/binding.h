@@ -14,6 +14,11 @@ typedef struct SharedPtr {
 } SharedPtr;
 typedef uintptr_t IntAddress; // v8::internal::Address
 
+typedef struct MaybeU32 {
+    bool has_value;
+    uint32_t value;
+} MaybeU32;
+
 // Platform
 typedef struct Platform Platform;
 Platform* v8__Platform__NewDefaultPlatform(int thread_pool_size, int idle_task_support);
@@ -147,6 +152,10 @@ int v8__String__Utf8Length(const String* str, Isolate* isolate);
 
 // Value
 String* v8__Value__ToString(const Value* val, const Context* ctx);
+void v8__Value__Uint32Value(
+    const Value* self,
+    const Context* ctx,
+    const MaybeU32* out);
 
 // Template
 typedef struct Template Template;
@@ -170,12 +179,25 @@ void v8__Template__Set(
 
 // FunctionCallbackInfo
 typedef struct FunctionCallbackInfo FunctionCallbackInfo;
+typedef struct ReturnValue {
+    uintptr_t addr;
+} ReturnValue;
 Isolate* v8__FunctionCallbackInfo__GetIsolate(
     const FunctionCallbackInfo* self);
 int v8__FunctionCallbackInfo__Length(
     const FunctionCallbackInfo* self);
 const Value* v8__FunctionCallbackInfo__INDEX(
     const FunctionCallbackInfo* self, int i);
+void v8__FunctionCallbackInfo__GetReturnValue(
+    const FunctionCallbackInfo* self,
+    ReturnValue* res);
+
+// ReturnValue
+void v8__ReturnValue__Set(
+    const ReturnValue self,
+    const Value* value);
+const Value* v8__ReturnValue__Get(
+    const ReturnValue self);
 
 // FunctionTemplate
 typedef struct FunctionTemplate FunctionTemplate;
@@ -185,11 +207,14 @@ const FunctionTemplate* v8__FunctionTemplate__New__DEFAULT(
     FunctionCallback callback_or_null);
 
 // ObjectTemplate
+typedef struct Object Object;
 typedef struct ObjectTemplate ObjectTemplate;
 ObjectTemplate* v8__ObjectTemplate__New__DEFAULT(
     Isolate* isolate);
 ObjectTemplate* v8__ObjectTemplate__New(
     Isolate* isolate, const FunctionTemplate* templ);
+Object* v8__ObjectTemplate__NewInstance(
+    const ObjectTemplate* self, const Context* ctx);
 
 // ScriptOrigin
 typedef struct ScriptOriginOptions {
