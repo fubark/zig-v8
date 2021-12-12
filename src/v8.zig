@@ -90,6 +90,15 @@ pub fn destroyArrayBufferAllocator(alloc: *c.ArrayBufferAllocator) void {
     c.v8__ArrayBuffer__Allocator__DELETE(alloc);
 }
 
+pub const Exception = struct {
+
+    pub fn initError(msg: String) Value {
+        return .{
+            .handle = c.v8__Exception__Error(msg.handle).?,
+        };
+    }
+};
+
 pub const Isolate = struct {
     const Self = @This();
 
@@ -134,6 +143,13 @@ pub const Isolate = struct {
     pub fn getCurrentContext(self: Self) Context {
         return .{
             .handle = c.v8__Isolate__GetCurrentContext(self.handle).?,
+        };
+    }
+
+    /// It seems stack trace is only captured if the value is wrapped in an Exception.initError.
+    pub fn throwException(self: Self, value: anytype) Value {
+        return .{
+            .handle = c.v8__Isolate__ThrowException(self.handle, getValueHandle(value)).?,
         };
     }
 
@@ -247,6 +263,12 @@ pub const FunctionCallbackInfo = struct {
             .inner = res,
         };
     }
+
+    pub fn getThis(self: Self) Object {
+        return .{
+            .handle = c.v8__FunctionCallbackInfo__This(self.handle).?,
+        };
+    }
 };
 
 pub const ReturnValue = struct {
@@ -303,12 +325,44 @@ pub const ObjectTemplate = struct {
             .handle = c.v8__ObjectTemplate__NewInstance(self.handle, ctx.handle).?,
         };
     }
+
+    pub fn setInternalFieldCount(self: Self, count: u32) void {
+        c.v8__ObjectTemplate__SetInternalFieldCount(self.handle, @intCast(c_int, count));
+    }
 };
 
 pub const Object = struct {
     const Self = @This();
 
     handle: *const c.Object,
+
+    pub fn setInternalField(self: Self, idx: u32, value: anytype) void {
+        c.v8__Object__SetInternalField(self.handle, @intCast(c_int, idx), getValueHandle(value));
+    }
+
+    pub fn getInternalField(self: Self, idx: u32) Value {
+        return .{
+            .handle = c.v8__Object__GetInternalField(self.handle, @intCast(c_int, idx)).?,
+        };
+    }
+};
+
+pub const Integer = struct {
+    const Self = @This();
+
+    handle: *const c.Integer,
+
+    pub fn initI32(isolate: Isolate, val: i32) Self {
+        return .{
+            .handle = c.v8__Integer__New(isolate.handle, val).?,
+        };
+    }
+
+    pub fn initU32(isolate: Isolate, val: u32) Self {
+        return .{
+            .handle = c.v8__Integer__NewFromUnsigned(isolate.handle, val).?,
+        };
+    }
 };
 
 pub inline fn getValue(val: anytype) Value {
@@ -322,6 +376,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Object => val.handle,
         Value => val.handle,
         String => val.handle,
+        Integer => val.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Value", .{@typeName(@TypeOf(val))})),
     });
 }
@@ -345,6 +400,7 @@ inline fn getDataHandle(val: anytype) *const c.Data {
     return @ptrCast(*const c.Data, comptime switch (@TypeOf(val)) {
         FunctionTemplate => val.handle,
         ObjectTemplate => val.handle,
+        Integer => val.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Data", .{@typeName(@TypeOf(val))})),
     });
 }
@@ -505,5 +561,9 @@ pub const Value = struct {
         } else {
             return 0;
         }
+    }
+
+    pub fn isFunction(self: Self) bool {
+        return c.v8__Value__IsFunction(self.handle);
     }
 };

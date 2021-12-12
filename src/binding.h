@@ -38,6 +38,9 @@ void v8__Isolate__Enter(Isolate* isolate);
 void v8__Isolate__Exit(Isolate* isolate);
 void v8__Isolate__Dispose(Isolate* isolate);
 Context* v8__Isolate__GetCurrentContext(Isolate* isolate);
+const Value* v8__Isolate__ThrowException(
+    Isolate* isolate,
+    const Value* exception);
 
 typedef struct StartupData StartupData;
 
@@ -156,6 +159,30 @@ void v8__Value__Uint32Value(
     const Value* self,
     const Context* ctx,
     const MaybeU32* out);
+bool v8__Value__IsFunction(const Value* self);
+
+// Object
+typedef struct Object Object;
+const Value* v8__Object__GetInternalField(
+    const Object* self,
+    int index);
+void v8__Object__SetInternalField(
+    const Object* self,
+    int index,
+    const Value* value);
+
+// Exception
+const Value* v8__Exception__Error(
+    const String* message);
+
+// Integer
+typedef struct Integer Integer;
+const Integer* v8__Integer__New(
+    Isolate* isolate,
+    int32_t value);
+const Integer* v8__Integer__NewFromUnsigned(
+    Isolate* isolate,
+    uint32_t value);
 
 // Template
 typedef struct Template Template;
@@ -191,6 +218,8 @@ const Value* v8__FunctionCallbackInfo__INDEX(
 void v8__FunctionCallbackInfo__GetReturnValue(
     const FunctionCallbackInfo* self,
     ReturnValue* res);
+const Object* v8__FunctionCallbackInfo__This(
+    const FunctionCallbackInfo* self);
 
 // ReturnValue
 void v8__ReturnValue__Set(
@@ -215,6 +244,9 @@ ObjectTemplate* v8__ObjectTemplate__New(
     Isolate* isolate, const FunctionTemplate* templ);
 Object* v8__ObjectTemplate__NewInstance(
     const ObjectTemplate* self, const Context* ctx);
+void v8__ObjectTemplate__SetInternalFieldCount(
+    const ObjectTemplate* self,
+    int value);
 
 // ScriptOrigin
 typedef struct ScriptOriginOptions {

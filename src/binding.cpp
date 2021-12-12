@@ -118,6 +118,12 @@ void v8__Isolate__CreateParams__CONSTRUCT(v8::Isolate::CreateParams* buf) {
     new (buf) v8::Isolate::CreateParams();
 }
 
+const v8::Value* v8__Isolate__ThrowException(
+        v8::Isolate* isolate,
+        const v8::Value& exception) {
+    return local_to_ptr(isolate->ThrowException(ptr_to_local(&exception)));
+}
+
 // HandleScope
 
 void v8__HandleScope__CONSTRUCT(v8::HandleScope* buf, v8::Isolate* isolate) {
@@ -199,6 +205,20 @@ int v8__String__Utf8Length(const v8::String& self, v8::Isolate* isolate) {
     return self.Utf8Length(isolate);
 }
 
+// Integer
+
+const v8::Integer* v8__Integer__New(
+        v8::Isolate* isolate,
+        int32_t value) {
+    return *v8::Integer::New(isolate, value);
+}
+
+const v8::Integer* v8__Integer__NewFromUnsigned(
+        v8::Isolate* isolate,
+        uint32_t value) {
+    return *v8::Integer::NewFromUnsigned(isolate, value);
+}
+
 // Value
 
 const v8::String* v8__Value__ToString(
@@ -212,6 +232,8 @@ void v8__Value__Uint32Value(
         v8::Maybe<uint32_t>* out) {
     *out = self.Uint32Value(ptr_to_local(&ctx));
 }
+
+bool v8__Value__IsFunction(const v8::Value& self) { return self.IsFunction(); }
 
 // Template
 
@@ -242,6 +264,27 @@ const v8::Object* v8__ObjectTemplate__NewInstance(
     );
 }
 
+void v8__ObjectTemplate__SetInternalFieldCount(
+        const v8::ObjectTemplate& self,
+        int value) {
+    ptr_to_local(&self)->SetInternalFieldCount(value);
+}
+
+// Object
+
+void v8__Object__SetInternalField(
+        const v8::Object& self,
+        int index,
+        const v8::Value& value) {
+    ptr_to_local(&self)->SetInternalField(index, ptr_to_local(&value));
+}
+
+const v8::Value* v8__Object__GetInternalField(
+        const v8::Object& self,
+        int index) {
+    return local_to_ptr(ptr_to_local(&self)->GetInternalField(index));
+}
+
 // FunctionCallbackInfo
 
 v8::Isolate* v8__FunctionCallbackInfo__GetIsolate(
@@ -266,6 +309,11 @@ void v8__FunctionCallbackInfo__GetReturnValue(
     *out = self.GetReturnValue();
 }
 
+const v8::Object* v8__FunctionCallbackInfo__This(
+        const v8::FunctionCallbackInfo<v8::Value>& self) {
+    return local_to_ptr(self.This());
+}
+
 // ReturnValue
 
 void v8__ReturnValue__Set(
@@ -284,6 +332,13 @@ const v8::Value* v8__ReturnValue__Get(
 const v8::FunctionTemplate* v8__FunctionTemplate__New__DEFAULT(
         v8::Isolate* isolate, v8::FunctionCallback callback_or_null) {
     return local_to_ptr(v8::FunctionTemplate::New(isolate, callback_or_null));
+}
+
+// Exception
+
+const v8::Value* v8__Exception__Error(
+        const v8::String& message) {
+    return local_to_ptr(v8::Exception::Error(ptr_to_local(&message)));
 }
 
 // TryCatch
