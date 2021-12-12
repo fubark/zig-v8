@@ -49,7 +49,9 @@ extern "C" {
 
 // Platform
 
-v8::Platform* v8__Platform__NewDefaultPlatform(int thread_pool_size, bool idle_task_support) {
+v8::Platform* v8__Platform__NewDefaultPlatform(
+        int thread_pool_size,
+        bool idle_task_support) {
     return v8::platform::NewDefaultPlatform(
         thread_pool_size,  
         idle_task_support ? v8::platform::IdleTaskSupport::kEnabled : v8::platform::IdleTaskSupport::kDisabled,
@@ -60,7 +62,10 @@ v8::Platform* v8__Platform__NewDefaultPlatform(int thread_pool_size, bool idle_t
 
 void v8__Platform__DELETE(v8::Platform* self) { delete self; }
 
-bool v8__Platform__PumpMessageLoop(v8::Platform* platform, v8::Isolate* isolate, bool wait_for_work) {
+bool v8__Platform__PumpMessageLoop(
+        v8::Platform* platform,
+        v8::Isolate* isolate,
+        bool wait_for_work) {
     return v8::platform::PumpMessageLoop(
         platform, isolate,
         wait_for_work ? v8::platform::MessageLoopBehavior::kWaitForWork : v8::platform::MessageLoopBehavior::kDoNotWait);
@@ -125,7 +130,10 @@ void v8__HandleScope__DESTRUCT(v8::HandleScope* scope) { scope->~HandleScope(); 
 
 // Context
 
-v8::Context* v8__Context__New(v8::Isolate* isolate, const v8::ObjectTemplate* global_tmpl, const v8::Value* global_obj) {
+v8::Context* v8__Context__New(
+        v8::Isolate* isolate,
+        const v8::ObjectTemplate* global_tmpl,
+        const v8::Value* global_obj) {
     return local_to_ptr(
         v8::Context::New(isolate, nullptr, ptr_to_maybe_local(global_tmpl), ptr_to_maybe_local(global_obj))
     );
@@ -141,36 +149,49 @@ v8::Isolate* v8__Context__GetIsolate(const v8::Context& self) {
 
 // ScriptOrigin
 
-void v8__ScriptOrigin__CONSTRUCT(v8::ScriptOrigin* buf, v8::Isolate* isolate, const v8::Value& resource_name) {
+void v8__ScriptOrigin__CONSTRUCT(
+        v8::ScriptOrigin* buf,
+        v8::Isolate* isolate,
+        const v8::Value& resource_name) {
     new (buf) v8::ScriptOrigin(isolate, ptr_to_local(&resource_name));
 }
 
 // Script
 
-v8::Script* v8__Script__Compile(const v8::Context& context, const v8::String& src, const v8::ScriptOrigin& origin) {
+v8::Script* v8__Script__Compile(
+        const v8::Context& context,
+        const v8::String& src,
+        const v8::ScriptOrigin& origin) {
     return maybe_local_to_ptr(
         v8::Script::Compile(ptr_to_local(&context), ptr_to_local(&src), const_cast<v8::ScriptOrigin*>(&origin))
     );
 }
 
-v8::Value* v8__Script__Run(const v8::Script& script, const v8::Context& context) {
+v8::Value* v8__Script__Run(
+        const v8::Script& script,
+        const v8::Context& context) {
     return maybe_local_to_ptr(ptr_to_local(&script)->Run(ptr_to_local(&context)));
 }
 
 // String
 
-v8::String* v8__String__NewFromUtf8(v8::Isolate* isolate, const char* data, v8::NewStringType type, int length) {
+v8::String* v8__String__NewFromUtf8(
+        v8::Isolate* isolate,
+        const char* data,
+        v8::NewStringType type,
+        int length) {
     return maybe_local_to_ptr(
         v8::String::NewFromUtf8(isolate, data, type, length)
     );
 }
 
-int v8__String__WriteUtf8(const v8::String& str,
-                          v8::Isolate* isolate,
-                          char* buffer,
-                          int length,
-                          int* nchars_ref,
-                          int options) {
+int v8__String__WriteUtf8(
+        const v8::String& str,
+        v8::Isolate* isolate,
+        char* buffer,
+        int length,
+        int* nchars_ref,
+        int options) {
     return str.WriteUtf8(isolate, buffer, length, nchars_ref, options);
 }
 
@@ -181,62 +202,87 @@ int v8__String__Utf8Length(const v8::String& self, v8::Isolate* isolate) {
 // Value
 
 const v8::String* v8__Value__ToString(
-    const v8::Value& val, const v8::Context& ctx) {
-
+        const v8::Value& val, const v8::Context& ctx) {
     return maybe_local_to_ptr(val.ToString(ptr_to_local(&ctx)));
+}
+
+void v8__Value__Uint32Value(
+        const v8::Value& self,
+        const v8::Context& ctx,
+        v8::Maybe<uint32_t>* out) {
+    *out = self.Uint32Value(ptr_to_local(&ctx));
 }
 
 // Template
 
 void v8__Template__Set(
-    const v8::Template& self,
-    const v8::Name& key,
-    const v8::Data& value,
-    v8::PropertyAttribute attr) {
-
+        const v8::Template& self,
+        const v8::Name& key,
+        const v8::Data& value,
+        v8::PropertyAttribute attr) {
     ptr_to_local(&self)->Set(ptr_to_local(&key), ptr_to_local(&value), attr);
 }
 
 // ObjectTemplate
 
 const v8::ObjectTemplate* v8__ObjectTemplate__New__DEFAULT(
-    v8::Isolate* isolate) {
-
+        v8::Isolate* isolate) {
     return local_to_ptr(v8::ObjectTemplate::New(isolate));
 }
 
 const v8::ObjectTemplate* v8__ObjectTemplate__New(
-    v8::Isolate* isolate, const v8::FunctionTemplate& constructor) {
-
+        v8::Isolate* isolate, const v8::FunctionTemplate& constructor) {
     return local_to_ptr(v8::ObjectTemplate::New(isolate, ptr_to_local(&constructor)));
+}
+
+const v8::Object* v8__ObjectTemplate__NewInstance(
+        const v8::ObjectTemplate& self, const v8::Context& ctx) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->NewInstance(ptr_to_local(&ctx))
+    );
 }
 
 // FunctionCallbackInfo
 
 v8::Isolate* v8__FunctionCallbackInfo__GetIsolate(
-    const v8::FunctionCallbackInfo<v8::Value>& self) {
-
+        const v8::FunctionCallbackInfo<v8::Value>& self) {
     return self.GetIsolate();
 }
 
 int v8__FunctionCallbackInfo__Length(
-    const v8::FunctionCallbackInfo<v8::Value>& self) {
-
+        const v8::FunctionCallbackInfo<v8::Value>& self) {
     return self.Length();
 }
 
 const v8::Value* v8__FunctionCallbackInfo__INDEX(
-    const v8::FunctionCallbackInfo<v8::Value>& self, int i) {
-
+        const v8::FunctionCallbackInfo<v8::Value>& self, int i) {
     return local_to_ptr(self[i]);
+}
+
+void v8__FunctionCallbackInfo__GetReturnValue(
+        const v8::FunctionCallbackInfo<v8::Value>& self,
+        v8::ReturnValue<v8::Value>* out) {
+    // Can't return incomplete type to C so copy to res pointer.
+    *out = self.GetReturnValue();
+}
+
+// ReturnValue
+
+void v8__ReturnValue__Set(
+        v8::ReturnValue<v8::Value> self,
+        const v8::Value& value) {
+    self.Set(ptr_to_local(&value));
+}
+
+const v8::Value* v8__ReturnValue__Get(
+        v8::ReturnValue<v8::Value> self) {
+    return local_to_ptr(self.Get());
 }
 
 // FunctionTemplate
 
 const v8::FunctionTemplate* v8__FunctionTemplate__New__DEFAULT(
-    v8::Isolate* isolate,
-    v8::FunctionCallback callback_or_null) {
-
+        v8::Isolate* isolate, v8::FunctionCallback callback_or_null) {
     return local_to_ptr(v8::FunctionTemplate::New(isolate, callback_or_null));
 }
 
@@ -246,7 +292,8 @@ size_t v8__TryCatch__SIZEOF() {
     return sizeof(v8::TryCatch);
 }
 
-void v8__TryCatch__CONSTRUCT(v8::TryCatch* buf, v8::Isolate* isolate) {
+void v8__TryCatch__CONSTRUCT(
+        v8::TryCatch* buf, v8::Isolate* isolate) {
     construct_in_place<v8::TryCatch>(buf, isolate);
 }
 
@@ -264,15 +311,17 @@ bool v8__TryCatch__HasCaught(const v8::TryCatch& self) {
     return self.HasCaught();
 }
 
-const v8::Value* v8__TryCatch__StackTrace(const v8::TryCatch& self,
-                                          const v8::Context& context) {
+const v8::Value* v8__TryCatch__StackTrace(
+        const v8::TryCatch& self,
+        const v8::Context& context) {
     return maybe_local_to_ptr(self.StackTrace(ptr_to_local(&context)));
 }
 
 // Message
 
-const v8::String* v8__Message__GetSourceLine(const v8::Message& self,
-                                             const v8::Context& context) {
+const v8::String* v8__Message__GetSourceLine(
+        const v8::Message& self,
+        const v8::Context& context) {
     return maybe_local_to_ptr(self.GetSourceLine(ptr_to_local(&context)));
 }
 
@@ -280,8 +329,9 @@ const v8::Value* v8__Message__GetScriptResourceName(const v8::Message& self) {
     return local_to_ptr(self.GetScriptResourceName());
 }
 
-int v8__Message__GetLineNumber(const v8::Message& self,
-                               const v8::Context& context) {
+int v8__Message__GetLineNumber(
+        const v8::Message& self,
+        const v8::Context& context) {
     v8::Maybe<int> maybe = self.GetLineNumber(ptr_to_local(&context));
     return maybe.FromMaybe(-1);
 }

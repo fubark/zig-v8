@@ -4,7 +4,6 @@ const c = @cImport({
     @cInclude("binding.h");
 });
 
-pub const Value = c.Value;
 pub const PropertyAttribute = struct {
     pub const None = c.None;
 };
@@ -235,8 +234,34 @@ pub const FunctionCallbackInfo = struct {
         };
     }
 
-    pub fn getArg(self: Self, i: u32) *const Value {
-        return c.v8__FunctionCallbackInfo__INDEX(self.handle, @intCast(c_int, i)).?;
+    pub fn getArg(self: Self, i: u32) Value {
+        return .{
+            .handle = c.v8__FunctionCallbackInfo__INDEX(self.handle, @intCast(c_int, i)).?,
+        };
+    }
+
+    pub fn getReturnValue(self: Self) ReturnValue {
+        var res: c.ReturnValue = undefined;
+        c.v8__FunctionCallbackInfo__GetReturnValue(self.handle, &res);
+        return .{
+            .inner = res,
+        };
+    }
+};
+
+pub const ReturnValue = struct {
+    const Self = @This();
+
+    inner: c.ReturnValue,
+
+    pub fn set(self: Self, value: anytype) void {
+        c.v8__ReturnValue__Set(self.inner, getValueHandle(value));
+    }
+
+    pub fn get(self: Self) Value {
+        return .{
+            .handle = c.v8__ReturnValue__Get(self.inner).?,
+        };
     }
 };
 
@@ -272,7 +297,34 @@ pub const ObjectTemplate = struct {
     pub fn set(self: Self, key: anytype, value: anytype, attr: c.PropertyAttribute) void {
         c.v8__Template__Set(getTemplateHandle(self), getNameHandle(key), getDataHandle(value), attr);
     }
+
+    pub fn initInstance(self: Self, ctx: Context) Object {
+        return .{
+            .handle = c.v8__ObjectTemplate__NewInstance(self.handle, ctx.handle).?,
+        };
+    }
 };
+
+pub const Object = struct {
+    const Self = @This();
+
+    handle: *const c.Object,
+};
+
+pub inline fn getValue(val: anytype) Value {
+    return .{
+        .handle = getValueHandle(val),
+    };
+}
+
+inline fn getValueHandle(val: anytype) *const c.Value {
+    return @ptrCast(*const c.Value, comptime switch (@TypeOf(val)) {
+        Object => val.handle,
+        Value => val.handle,
+        String => val.handle,
+        else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Value", .{@typeName(@TypeOf(val))})),
+    });
+}
 
 inline fn getNameHandle(val: anytype) *const c.Name {
     return @ptrCast(*const c.Name, comptime switch (@TypeOf(val)) {
@@ -292,6 +344,7 @@ inline fn getTemplateHandle(val: anytype) *const c.Template {
 inline fn getDataHandle(val: anytype) *const c.Data {
     return @ptrCast(*const c.Data, comptime switch (@TypeOf(val)) {
         FunctionTemplate => val.handle,
+        ObjectTemplate => val.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Data", .{@typeName(@TypeOf(val))})),
     });
 }
@@ -301,8 +354,12 @@ pub const Message = struct {
 
     handle: *const c.Message,
 
-    pub fn getSourceLine(self: Self, ctx: Context) ?*const c.String {
-        return c.v8__Message__GetSourceLine(self.handle, ctx.handle);
+    pub fn getSourceLine(self: Self, ctx: Context) ?String {
+        if (c.v8__Message__GetSourceLine(self.handle, ctx.handle)) |string| {
+            return String{
+                .handle = string,
+            };
+        } else return null;
     }
 
     pub fn getScriptResourceName(self: Self) *const c.Value {
@@ -341,12 +398,18 @@ pub const TryCatch = struct {
         return c.v8__TryCatch__HasCaught(&self.inner);
     }
 
-    pub fn getException(self: Self) *const Value {
-        return c.v8__TryCatch__Exception(&self.inner).?;
+    pub fn getException(self: Self) Value {
+        return .{
+            .handle = c.v8__TryCatch__Exception(&self.inner).?,
+        };
     }
 
-    pub fn getStackTrace(self: Self, ctx: Context) ?*const Value {
-        return c.v8__TryCatch__StackTrace(&self.inner, ctx.handle);
+    pub fn getStackTrace(self: Self, ctx: Context) ?Value {
+        if (c.v8__TryCatch__StackTrace(&self.inner, ctx.handle)) |value| {
+            return Value{
+                .handle = value,
+            };
+        } else return null;
     }
 
     pub fn getMessage(self: Self) ?Message {
@@ -414,13 +477,33 @@ pub const Script = struct {
     }
 
     /// Null indicates a runtime error.
-    pub fn run(self: Self, ctx: Context) ?*const c.Value {
-        return c.v8__Script__Run(self.handle, ctx.handle);
+    pub fn run(self: Self, ctx: Context) ?Value {
+        if (c.v8__Script__Run(self.handle, ctx.handle)) |value| {
+            return Value{
+                .handle = value,
+            };
+        } else return null;
     }
 };
 
-pub fn valueToString(ctx: Context, val: *const c.Value) String {
-    return .{
-        .handle = c.v8__Value__ToString(val, ctx.handle).?,
-    };
-}
+pub const Value = struct {
+    const Self = @This();
+
+    handle: *const c.Value,
+
+    pub fn toString(self: Self, ctx: Context) String {
+        return .{
+            .handle = c.v8__Value__ToString(self.handle, ctx.handle).?,
+        };
+    }
+
+    pub fn toU32(self: Self, ctx: Context) u32 {
+        var out: c.MaybeU32 = undefined;
+        c.v8__Value__Uint32Value(self.handle, ctx.handle, &out);
+        if (out.has_value == 1) {
+            return out.value;
+        } else {
+            return 0;
+        }
+    }
+};
