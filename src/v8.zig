@@ -11,6 +11,13 @@ pub const PropertyAttribute = struct {
 // Currently, user callback functions passed into FunctionTemplate will need to have this declared as a param and then
 // converted to FunctionCallbackInfo to get a nicer interface.
 pub const RawFunctionCallbackInfo = c.FunctionCallbackInfo;
+pub const RawPropertyCallbackInfo = c.PropertyCallbackInfo;
+
+pub const FunctionCallback = c.FunctionCallback;
+pub const AccessorNameGetterCallback = c.AccessorNameGetterCallback;
+pub const AccessorNameSetterCallback = c.AccessorNameSetterCallback;
+
+pub const Name = c.Name;
 
 pub const Platform = struct {
     const Self = @This();
@@ -161,13 +168,13 @@ pub const HandleScope = struct {
     inner: c.HandleScope,
 
     /// [Notes]
-    /// This starts a new stack frame to record objects created.
+    /// This starts a new stack frame to record local objects created.
     pub fn init(self: *Self, isolate: Isolate) void {
         c.v8__HandleScope__CONSTRUCT(&self.inner, isolate.handle);
     }
 
     /// [Notes]
-    /// This pops the scope frame and allows V8 to mark/free objects created since initHandleScope.
+    /// This pops the scope frame and allows V8 to mark/free local objects created since HandleScope.init.
     /// In C++ code, this would happen automatically when the HandleScope var leaves the current scope.
     pub fn deinit(self: *Self) void {
         c.v8__HandleScope__DESTRUCT(&self.inner);
@@ -177,7 +184,7 @@ pub const HandleScope = struct {
 pub const Context = struct {
     const Self = @This();
 
-    handle: *c.Context,
+    handle: *const c.Context,
 
     /// [V8]
     /// Creates a new context and returns a handle to the newly allocated
@@ -211,21 +218,59 @@ pub const Context = struct {
     /// and run is compiled and run in this context.  If another context
     /// is already entered, this old context is saved so it can be
     /// restored when the new context is exited.
-    pub fn enter(self: *Self) void {
+    pub fn enter(self: Self) void {
         c.v8__Context__Enter(self.handle);
     }
 
     /// [V8]
     /// Exit this context.  Exiting the current context restores the
     /// context that was in place when entering the current context.
-    pub fn exit(self: *Self) void {
+    pub fn exit(self: Self) void {
         c.v8__Context__Exit(self.handle);
     }
 
     /// [V8]
     /// Returns the isolate associated with a current context.
-    pub fn getIsolate(self: *const Self) *Isolate {
+    pub fn getIsolate(self: Self) *Isolate {
         return c.v8__Context__GetIsolate(self);
+    }
+
+    pub fn getGlobal(self: Self) Object {
+        return .{
+            .handle = c.v8__Context__Global(self.handle).?,
+        };
+    }
+};
+
+pub const PropertyCallbackInfo = struct {
+    const Self = @This();
+
+    handle: *const c.PropertyCallbackInfo,
+
+    pub fn initFromV8(val: ?*const c.PropertyCallbackInfo) Self {
+        return .{
+            .handle = val.?,
+        };
+    }
+
+    pub fn getIsolate(self: Self) Isolate {
+        return .{
+            .handle = c.v8__PropertyCallbackInfo__GetIsolate(self.handle).?,
+        };
+    }
+
+    pub fn getReturnValue(self: Self) ReturnValue {
+        var res: c.ReturnValue = undefined;
+        c.v8__PropertyCallbackInfo__GetReturnValue(self.handle, &res);
+        return .{
+            .inner = res,
+        };
+    }
+
+    pub fn getThis(self: Self) Object {
+        return .{
+            .handle = c.v8__PropertyCallbackInfo__This(self.handle).?,
+        };
     }
 };
 
@@ -292,9 +337,114 @@ pub const FunctionTemplate = struct {
 
     handle: *const c.FunctionTemplate,
 
-    pub fn initDefault(isolate: Isolate, callback: c.FunctionCallback) Self {
+    pub fn initDefault(isolate: Isolate) Self {
         return .{
-            .handle = c.v8__FunctionTemplate__New__DEFAULT(isolate.handle, callback).?,
+            .handle = c.v8__FunctionTemplate__New__DEFAULT(isolate.handle).?,
+        };
+    }
+
+    pub fn initCallback(isolate: Isolate, callback: c.FunctionCallback) Self {
+        return .{
+            .handle = c.v8__FunctionTemplate__New__DEFAULT2(isolate.handle, callback).?,
+        };
+    }
+
+    /// This is typically used to set class fields.
+    pub fn getInstanceTemplate(self: Self) ObjectTemplate {
+        return .{
+            .handle = c.v8__FunctionTemplate__InstanceTemplate(self.handle).?,
+        };
+    }
+
+    /// This is typically used to set class methods.
+    pub fn getPrototypeTemplate(self: Self) ObjectTemplate {
+        return .{
+            .handle = c.v8__FunctionTemplate__PrototypeTemplate(self.handle).?,
+        };
+    }
+
+    /// There is only one unique function for a FunctionTemplate in a given context.
+    /// The Function can then be used to invoke NewInstance which is equivalent to doing js "new".
+    pub fn getFunction(self: Self, ctx: Context) Function {
+        return .{
+            .handle = c.v8__FunctionTemplate__GetFunction(self.handle, ctx.handle).?,
+        };
+    }
+
+    /// Sets static property on the template.
+    pub fn set(self: Self, key: anytype, value: anytype, attr: c.PropertyAttribute) void {
+        c.v8__Template__Set(getTemplateHandle(self), getNameHandle(key), getDataHandle(value), attr);
+    }
+
+    pub fn setGetter(self: Self, name: anytype, getter: FunctionTemplate) void {
+        c.v8__Template__SetAccessorProperty__DEFAULT(getTemplateHandle(self), getNameHandle(name), getter.handle);
+    }
+};
+
+pub const Function = struct {
+    const Self = @This();
+
+    handle: *const c.Function,
+
+    /// receiver_val is "this" in the function context. This is equivalent to calling fn.apply(receiver, args) in JS.
+    /// Returns null if there was an error.
+    pub fn call(self: Self, ctx: Context, receiver_val: anytype, args: []const Value) ?Value {
+        const c_args = @ptrCast(?[*]const ?*c_void, args.ptr);
+        if (c.v8__Function__Call(self.handle, ctx.handle, getValueHandle(receiver_val), @intCast(c_int, args.len), c_args)) |ret| {
+            return Value{
+                .handle = ret,
+            };
+        } else return null;
+    }
+
+    // Equavalent to js "new".
+    pub fn newInstance(self: Self, ctx: Context, args: []const Value) ?Object {
+        const c_args = @ptrCast(?[*]const ?*c_void, args.ptr);
+        if (c.v8__Function__NewInstance(self.handle, ctx.handle, @intCast(c_int, args.len), c_args)) |ret| {
+            return Object{
+                .handle = ret,
+            };
+        } else return null;
+    }
+
+    pub fn toValue(self: Self) Value {
+        return .{
+            .handle = self.handle,
+        };
+    }
+
+    /// Should only be called if you know the underlying type is a v8.Persistent.
+    pub fn castToPersistent(self: Self) Persistent {
+        return .{
+            .inner = .{
+                .val_ptr = @ptrToInt(self.handle),
+            }
+        };
+    }
+};
+
+pub const Persistent = struct {
+    const Self = @This();
+
+    inner: c.Persistent,
+
+    /// A new value is created that references the original value.
+    pub fn init(isolate: Isolate, value: anytype) Self {
+        var inner: c.Persistent = undefined;
+        c.v8__Persistent__New(isolate.handle, getValueHandle(value), &inner);
+        return .{
+            .inner = inner,
+        };
+    }
+
+    pub fn deinit(self: Self) void {
+        c.v8__Persistent__Reset(&self.inner);
+    }
+
+    /// Should only be called if you know the underlying type is a v8.Function.
+    pub fn castToFunction(self: Self) Function {
+        return .{
+            .handle = @intToPtr(*const c.Function, self.inner.val_ptr),
         };
     }
 };
@@ -302,7 +452,7 @@ pub const FunctionTemplate = struct {
 pub const ObjectTemplate = struct {
     const Self = @This();
 
-    handle: *c.ObjectTemplate,
+    handle: *const c.ObjectTemplate,
 
     pub fn initDefault(isolate: Isolate) Self {
         return .{
@@ -316,18 +466,32 @@ pub const ObjectTemplate = struct {
         };
     }
 
-    pub fn set(self: Self, key: anytype, value: anytype, attr: c.PropertyAttribute) void {
-        c.v8__Template__Set(getTemplateHandle(self), getNameHandle(key), getDataHandle(value), attr);
-    }
-
     pub fn initInstance(self: Self, ctx: Context) Object {
         return .{
             .handle = c.v8__ObjectTemplate__NewInstance(self.handle, ctx.handle).?,
         };
     }
 
+    pub fn setGetter(self: Self, name: anytype, getter: c.AccessorNameGetterCallback) void {
+        c.v8__ObjectTemplate__SetAccessor__DEFAULT(self.handle, getNameHandle(name), getter);
+    }
+
+    pub fn setGetterAndSetter(self: Self, name: anytype, getter: c.AccessorNameGetterCallback, setter: c.AccessorNameSetterCallback) void {
+        c.v8__ObjectTemplate__SetAccessor__DEFAULT2(self.handle, getNameHandle(name), getter, setter);
+    }
+
+    pub fn set(self: Self, key: anytype, value: anytype, attr: c.PropertyAttribute) void {
+        c.v8__Template__Set(getTemplateHandle(self), getNameHandle(key), getDataHandle(value), attr);
+    }
+
     pub fn setInternalFieldCount(self: Self, count: u32) void {
         c.v8__ObjectTemplate__SetInternalFieldCount(self.handle, @intCast(c_int, count));
+    }
+
+    pub fn toValue(self: Self) Value {
+        return .{
+            .handle = self.handle,
+        };
     }
 };
 
@@ -343,6 +507,26 @@ pub const Object = struct {
     pub fn getInternalField(self: Self, idx: u32) Value {
         return .{
             .handle = c.v8__Object__GetInternalField(self.handle, @intCast(c_int, idx)).?,
+        };
+    }
+
+    // Returns true on success, false on fail.
+    pub fn setValue(self: Self, ctx: Context, key: anytype, value: anytype) bool {
+        var out: c.MaybeBool = undefined;
+        c.v8__Object__Set(self.handle, ctx.handle, getValueHandle(key), getValueHandle(value), &out);
+        // Set only returns empty for an error or true.
+        return out.has_value == 1;
+    }
+
+    pub fn getValue(self: Self, ctx: Context, key: anytype) Value {
+        return .{
+            .handle = c.v8__Object__Get(self.handle, ctx.handle, getValueHandle(key)).?,
+        };
+    }
+
+    pub fn toValue(self: Self) Value {
+        return .{
+            .handle = self.handle,
         };
     }
 };
@@ -363,6 +547,12 @@ pub const Integer = struct {
             .handle = c.v8__Integer__NewFromUnsigned(isolate.handle, val).?,
         };
     }
+
+    pub fn toValue(self: Self) Value {
+        return .{
+            .handle = self.handle,
+        };
+    }
 };
 
 pub inline fn getValue(val: anytype) Value {
@@ -377,6 +567,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Value => val.handle,
         String => val.handle,
         Integer => val.handle,
+        Persistent => @intToPtr(*const c.Value, val.inner.val_ptr),
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Value", .{@typeName(@TypeOf(val))})),
     });
 }
@@ -391,6 +582,7 @@ inline fn getNameHandle(val: anytype) *const c.Name {
 
 inline fn getTemplateHandle(val: anytype) *const c.Template {
     return @ptrCast(*const c.Template, comptime switch (@TypeOf(val)) {
+        FunctionTemplate => val.handle,
         ObjectTemplate => val.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Template", .{@typeName(@TypeOf(val))})),
     });
@@ -563,7 +755,57 @@ pub const Value = struct {
         }
     }
 
+    pub fn toF32(self: Self, ctx: Context) f32 {
+        var out: c.MaybeF64 = undefined;
+        c.v8__Value__NumberValue(self.handle, ctx.handle, &out);
+        if (out.has_value == 1) {
+            return @floatCast(f32, out.value);
+        } else {
+            return 0;
+        }
+    }
+
+    pub fn toF64(self: Self, ctx: Context) f64 {
+        var out: c.MaybeF64 = undefined;
+        c.v8__Value__NumberValue(self.handle, ctx.handle, &out);
+        if (out.has_value == 1) {
+            return out.value;
+        } else {
+            return 0;
+        }
+    }
+
+    pub fn isObject(self: Self) bool {
+        return c.v8__Value__IsObject(self.handle);
+    }
+
     pub fn isFunction(self: Self) bool {
         return c.v8__Value__IsFunction(self.handle);
+    }
+
+    /// Should only be called if you know the underlying type is a v8.Function.
+    pub fn castToFunction(self: Self) Function {
+        return .{
+            .handle = @ptrCast(*const c.Function, self.handle),
+        };
+    }
+
+    /// Should only be called if you know the underlying type is a v8.Object.
+    pub fn castToObject(self: Self) Object {
+        return .{
+            .handle = @ptrCast(*const c.Object, self.handle),
+        };
+    }
+};
+
+pub const Primitive = struct {
+    const Self = @This();
+
+    handle: *const c.Primitive,
+
+    pub fn initUndefined(isolate: Isolate) Self {
+        return .{
+            .handle = c.v8__Undefined(isolate.handle).?,
+        };
     }
 };

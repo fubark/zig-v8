@@ -4,10 +4,6 @@
 #include "include/libplatform/libplatform.h"
 #include "include/v8.h"
 
-// for PrintF
-// v8::internal::PrintF(stdout, "%s", "");
-//#include "src/utils/utils.h"
-
 template <class T, class... Args>
 class Wrapper {
     public:
@@ -45,6 +41,15 @@ inline static T* maybe_local_to_ptr(v8::MaybeLocal<T> local) {
     return *local.FromMaybe(v8::Local<T>());
 }
 
+template <class T>
+inline static v8::Local<T>* const_ptr_array_to_local_array(
+        const T* const ptr_array[]) {
+    static_assert(sizeof(v8::Local<T>) == sizeof(T*), "");
+    auto mut_ptr_array = const_cast<T**>(ptr_array);
+    auto mut_local_array = reinterpret_cast<v8::Local<T>*>(mut_ptr_array);
+    return mut_local_array;
+}
+
 extern "C" {
 
 // Platform
@@ -69,6 +74,13 @@ bool v8__Platform__PumpMessageLoop(
     return v8::platform::PumpMessageLoop(
         platform, isolate,
         wait_for_work ? v8::platform::MessageLoopBehavior::kWaitForWork : v8::platform::MessageLoopBehavior::kDoNotWait);
+}
+
+// Root
+
+const v8::Primitive* v8__Undefined(
+        v8::Isolate* isolate) {
+    return local_to_ptr(v8::Undefined(isolate));
 }
 
 // V8
@@ -153,6 +165,11 @@ v8::Isolate* v8__Context__GetIsolate(const v8::Context& self) {
 	return ptr_to_local(&self)->GetIsolate();
 }
 
+const v8::Object* v8__Context__Global(
+        const v8::Context& self) {
+    return local_to_ptr(ptr_to_local(&self)->Global());
+}
+
 // ScriptOrigin
 
 void v8__ScriptOrigin__CONSTRUCT(
@@ -233,7 +250,16 @@ void v8__Value__Uint32Value(
     *out = self.Uint32Value(ptr_to_local(&ctx));
 }
 
+void v8__Value__NumberValue(
+        const v8::Value& self,
+        const v8::Context& ctx,
+        v8::Maybe<double>* out) {
+    *out = self.NumberValue(ptr_to_local(&ctx));
+}
+
 bool v8__Value__IsFunction(const v8::Value& self) { return self.IsFunction(); }
+
+bool v8__Value__IsObject(const v8::Value& self) { return self.IsObject(); }
 
 // Template
 
@@ -243,6 +269,13 @@ void v8__Template__Set(
         const v8::Data& value,
         v8::PropertyAttribute attr) {
     ptr_to_local(&self)->Set(ptr_to_local(&key), ptr_to_local(&value), attr);
+}
+
+void v8__Template__SetAccessorProperty__DEFAULT(
+        const v8::Template& self,
+        const v8::Name& key,
+        const v8::FunctionTemplate& getter) {
+    ptr_to_local(&self)->SetAccessorProperty(ptr_to_local(&key), ptr_to_local(&getter));
 }
 
 // ObjectTemplate
@@ -270,6 +303,21 @@ void v8__ObjectTemplate__SetInternalFieldCount(
     ptr_to_local(&self)->SetInternalFieldCount(value);
 }
 
+void v8__ObjectTemplate__SetAccessor__DEFAULT(
+        const v8::ObjectTemplate& self,
+        const v8::Name& key,
+        v8::AccessorNameGetterCallback getter) {
+    ptr_to_local(&self)->SetAccessor(ptr_to_local(&key), getter);
+}
+
+void v8__ObjectTemplate__SetAccessor__DEFAULT2(
+        const v8::ObjectTemplate& self,
+        const v8::Name& key,
+        v8::AccessorNameGetterCallback getter,
+        v8::AccessorNameSetterCallback setter) {
+    ptr_to_local(&self)->SetAccessor(ptr_to_local(&key), getter, setter);
+}
+
 // Object
 
 void v8__Object__SetInternalField(
@@ -283,6 +331,28 @@ const v8::Value* v8__Object__GetInternalField(
         const v8::Object& self,
         int index) {
     return local_to_ptr(ptr_to_local(&self)->GetInternalField(index));
+}
+
+const v8::Value* v8__Object__Get(
+        const v8::Object& self,
+        const v8::Context& context,
+        const v8::Value& key) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->Get(ptr_to_local(&context), ptr_to_local(&key))
+    );
+}
+
+void v8__Object__Set(
+        const v8::Object& self,
+        const v8::Context& ctx,
+        const v8::Value& key,
+        const v8::Value& value,
+        v8::Maybe<bool>* out) {
+    *out = ptr_to_local(&self)->Set(
+        ptr_to_local(&ctx),
+        ptr_to_local(&key),
+        ptr_to_local(&value)
+    );
 }
 
 // FunctionCallbackInfo
@@ -314,6 +384,24 @@ const v8::Object* v8__FunctionCallbackInfo__This(
     return local_to_ptr(self.This());
 }
 
+// PropertyCallbackInfo
+
+v8::Isolate* v8__PropertyCallbackInfo__GetIsolate(
+        const v8::PropertyCallbackInfo<v8::Value>& self) {
+    return self.GetIsolate();
+}
+
+void v8__PropertyCallbackInfo__GetReturnValue(
+        const v8::PropertyCallbackInfo<v8::Value>& self,
+        v8::ReturnValue<v8::Value>* out) {
+    *out = self.GetReturnValue();
+}
+
+const v8::Object* v8__PropertyCallbackInfo__This(
+        const v8::PropertyCallbackInfo<v8::Value>& self) {
+    return local_to_ptr(self.This());
+}
+
 // ReturnValue
 
 void v8__ReturnValue__Set(
@@ -330,8 +418,78 @@ const v8::Value* v8__ReturnValue__Get(
 // FunctionTemplate
 
 const v8::FunctionTemplate* v8__FunctionTemplate__New__DEFAULT(
-        v8::Isolate* isolate, v8::FunctionCallback callback_or_null) {
+        v8::Isolate* isolate) {
+    return local_to_ptr(v8::FunctionTemplate::New(isolate));
+}
+
+const v8::FunctionTemplate* v8__FunctionTemplate__New__DEFAULT2(
+        v8::Isolate* isolate,
+        v8::FunctionCallback callback_or_null) {
     return local_to_ptr(v8::FunctionTemplate::New(isolate, callback_or_null));
+}
+
+const v8::ObjectTemplate* v8__FunctionTemplate__InstanceTemplate(
+        const v8::FunctionTemplate& self) {
+    return local_to_ptr(ptr_to_local(&self)->InstanceTemplate());
+}
+
+const v8::ObjectTemplate* v8__FunctionTemplate__PrototypeTemplate(
+        const v8::FunctionTemplate& self) {
+    return local_to_ptr(ptr_to_local(&self)->PrototypeTemplate());
+}
+
+const v8::Function* v8__FunctionTemplate__GetFunction(
+        const v8::FunctionTemplate& self, const v8::Context& context) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->GetFunction(ptr_to_local(&context))
+    );
+}
+
+// Function
+
+const v8::Value* v8__Function__Call(
+        const v8::Function& self,
+        const v8::Context& context,
+        const v8::Value& recv,
+        int argc,
+        const v8::Value* const argv[]) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->Call(
+            ptr_to_local(&context),
+            ptr_to_local(&recv),
+            argc, const_ptr_array_to_local_array(argv)
+        )
+    );
+}
+
+const v8::Object* v8__Function__NewInstance(
+        const v8::Function& self,
+        const v8::Context& context,
+        int argc,
+        const v8::Value* const argv[]) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->NewInstance(
+            ptr_to_local(&context),
+            argc,
+            const_ptr_array_to_local_array(argv)
+        )
+    );
+}
+
+// Persistent
+
+void v8__Persistent__New(
+        v8::Isolate* isolate,
+        const v8::Value& value,
+        v8::Persistent<v8::Value>* out) {
+    new (out) v8::Persistent<v8::Value>(isolate, ptr_to_local(&value));
+}
+
+void v8__Persistent__Reset(
+        v8::Persistent<v8::Value>* self) {
+    // v8::Persistent by default uses NonCopyablePersistentTraits which will create a bad copy if we accept v8::Persistent<v8::Value> as the arg.
+    // Instead we operate on its pointer.
+    self->Reset();
 }
 
 // Exception

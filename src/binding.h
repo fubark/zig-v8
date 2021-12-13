@@ -5,6 +5,9 @@ typedef uintptr_t usize;
 typedef struct CreateParams CreateParams;
 typedef struct Isolate Isolate;
 typedef struct String String;
+typedef struct Function Function;
+typedef struct FunctionTemplate FunctionTemplate;
+typedef struct Object Object;
 typedef struct Context Context;
 // Super type.
 typedef void Value;
@@ -18,12 +21,25 @@ typedef struct MaybeU32 {
     bool has_value;
     uint32_t value;
 } MaybeU32;
+typedef struct MaybeF64 {
+    bool has_value;
+    double value;
+} MaybeF64;
+typedef struct MaybeBool {
+    bool has_value;
+    bool value;
+} MaybeBool;
 
 // Platform
 typedef struct Platform Platform;
 Platform* v8__Platform__NewDefaultPlatform(int thread_pool_size, int idle_task_support);
 void v8__Platform__DELETE(Platform* platform);
 bool v8__Platform__PumpMessageLoop(Platform* platform, Isolate* isolate, bool wait_for_work);
+
+// Root
+typedef struct Primitive Primitive;
+const Primitive* v8__Undefined(
+    Isolate* isolate);
 
 // V8
 void v8__V8__InitializePlatform(Platform* platform);
@@ -120,10 +136,11 @@ const Value* v8__TryCatch__StackTrace(const TryCatch* self, const Context* conte
 // Context
 typedef struct Context Context;
 typedef struct ObjectTemplate ObjectTemplate;
-Context* v8__Context__New(Isolate* isolate, ObjectTemplate* global_tmpl, Value* global_obj);
-void v8__Context__Enter(Context* context);
-void v8__Context__Exit(Context* context);
+Context* v8__Context__New(Isolate* isolate, const ObjectTemplate* global_tmpl, const Value* global_obj);
+void v8__Context__Enter(const Context* context);
+void v8__Context__Exit(const Context* context);
 Isolate* v8__Context__GetIsolate(const Context* context);
+const Object* v8__Context__Global(const Context* self);
 
 // String
 typedef enum NewStringType {
@@ -159,10 +176,14 @@ void v8__Value__Uint32Value(
     const Value* self,
     const Context* ctx,
     const MaybeU32* out);
+void v8__Value__NumberValue(
+    const Value* self,
+    const Context* context,
+    const MaybeF64* out);
 bool v8__Value__IsFunction(const Value* self);
+bool v8__Value__IsObject(const Value* self);
 
 // Object
-typedef struct Object Object;
 const Value* v8__Object__GetInternalField(
     const Object* self,
     int index);
@@ -170,6 +191,16 @@ void v8__Object__SetInternalField(
     const Object* self,
     int index,
     const Value* value);
+const Value* v8__Object__Get(
+    const Object* self,
+    const Context* context,
+    const Value* key);
+void v8__Object__Set(
+        const Object* self,
+        const Context* ctx,
+        const Value* key,
+        const Value* value,
+        MaybeBool* out);
 
 // Exception
 const Value* v8__Exception__Error(
@@ -203,6 +234,10 @@ void v8__Template__Set(
     const Name* key,
     const Data* value,
     PropertyAttribute attr);
+void v8__Template__SetAccessorProperty__DEFAULT(
+    const Template* self,
+    const Name* key,
+    const FunctionTemplate* getter);
 
 // FunctionCallbackInfo
 typedef struct FunctionCallbackInfo FunctionCallbackInfo;
@@ -221,6 +256,16 @@ void v8__FunctionCallbackInfo__GetReturnValue(
 const Object* v8__FunctionCallbackInfo__This(
     const FunctionCallbackInfo* self);
 
+// PropertyCallbackInfo
+typedef struct PropertyCallbackInfo PropertyCallbackInfo;
+Isolate* v8__PropertyCallbackInfo__GetIsolate(
+    const PropertyCallbackInfo* self);
+void v8__PropertyCallbackInfo__GetReturnValue(
+    const PropertyCallbackInfo* self,
+    ReturnValue* res);
+const Object* v8__PropertyCallbackInfo__This(
+    const PropertyCallbackInfo* self);
+
 // ReturnValue
 void v8__ReturnValue__Set(
     const ReturnValue self,
@@ -229,11 +274,42 @@ const Value* v8__ReturnValue__Get(
     const ReturnValue self);
 
 // FunctionTemplate
-typedef struct FunctionTemplate FunctionTemplate;
 typedef void (*FunctionCallback)(const FunctionCallbackInfo*);
 const FunctionTemplate* v8__FunctionTemplate__New__DEFAULT(
+    Isolate* isolate);
+const FunctionTemplate* v8__FunctionTemplate__New__DEFAULT2(
     Isolate* isolate,
     FunctionCallback callback_or_null);
+const ObjectTemplate* v8__FunctionTemplate__InstanceTemplate(
+    const FunctionTemplate* self);
+const ObjectTemplate* v8__FunctionTemplate__PrototypeTemplate(
+    const FunctionTemplate* self);
+const Function* v8__FunctionTemplate__GetFunction(
+    const FunctionTemplate* self, const Context* context);
+
+// Function
+const Value* v8__Function__Call(
+    const Function* self,
+    const Context* context,
+    const Value* recv,
+    int argc,
+    const Value* const argv[]);
+const Object* v8__Function__NewInstance(
+    const Function* self,
+    const Context* context,
+    int argc,
+    const Value* const argv[]);
+
+// Persistent
+typedef struct Persistent {
+    uintptr_t val_ptr;
+} Persistent;
+void v8__Persistent__New(
+    Isolate* isolate,
+    const Value* value,
+    Persistent* out);
+void v8__Persistent__Reset(
+    const Persistent* self);
 
 // ObjectTemplate
 typedef struct Object Object;
@@ -247,6 +323,17 @@ Object* v8__ObjectTemplate__NewInstance(
 void v8__ObjectTemplate__SetInternalFieldCount(
     const ObjectTemplate* self,
     int value);
+typedef void (*AccessorNameGetterCallback)(const Name*, const PropertyCallbackInfo*);
+typedef void (*AccessorNameSetterCallback)(const Name*, const Value*, const PropertyCallbackInfo*);
+void v8__ObjectTemplate__SetAccessor__DEFAULT(
+    const ObjectTemplate* self,
+    const Name* key,
+    AccessorNameGetterCallback getter);
+void v8__ObjectTemplate__SetAccessor__DEFAULT2(
+    const ObjectTemplate* self,
+    const Name* key,
+    AccessorNameGetterCallback getter,
+    AccessorNameSetterCallback setter);
 
 // ScriptOrigin
 typedef struct ScriptOriginOptions {
