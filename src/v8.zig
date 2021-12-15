@@ -276,6 +276,28 @@ pub const PropertyCallbackInfo = struct {
     }
 };
 
+pub const WeakCallbackInfo = struct {
+    const Self = @This();
+
+    handle: *const c.WeakCallbackInfo,
+
+    pub fn initFromC(val: ?*const c.WeakCallbackInfo) Self {
+        return .{
+            .handle = val.?,
+        };
+    }
+
+    pub fn getIsolate(self: Self) Isolate {
+        return .{
+            .handle = c.v8__WeakCallbackInfo__GetIsolate(self.handle).?,
+        };
+    }
+
+    pub fn getParameter(self: Self) *const c_void {
+        return c.v8__WeakCallbackInfo__GetParameter(self.handle).?;
+    }
+};
+
 pub const FunctionCallbackInfo = struct {
     const Self = @This();
 
@@ -419,6 +441,12 @@ pub const Function = struct {
                 .handle = ret,
             };
         } else return null;
+    }
+
+    pub fn toObject(self: Self) Object {
+        return .{
+            .handle = @ptrCast(*const c.Object, self.handle),
+        };
     }
 
     pub fn toValue(self: Self) Value {
@@ -624,6 +652,12 @@ pub const Number = struct {
 
     pub fn initBitCastedU64(isolate: Isolate, val: u64) Self {
         return init(isolate, @bitCast(f64, val));
+    }
+
+    pub fn toValue(self: Self) Value {
+        return .{
+            .handle = self.handle,
+        };
     }
 };
 
@@ -881,6 +915,14 @@ pub const Value = struct {
         } else {
             return 0;
         }
+    }
+
+    pub fn instanceOf(self: Self, ctx: Context, obj: Object) bool {
+        var out: c.MaybeBool = undefined;
+        c.v8__Value__InstanceOf(self.handle, ctx.handle, obj.handle, &out);
+        if (out.has_value == 1) {
+            return out.value == 1;
+        } else return false;
     }
 
     pub fn isObject(self: Self) bool {

@@ -186,14 +186,19 @@ String* v8__Value__ToString(const Value* val, const Context* ctx);
 void v8__Value__Uint32Value(
     const Value* self,
     const Context* ctx,
-    const MaybeU32* out);
+    MaybeU32* out);
 void v8__Value__NumberValue(
     const Value* self,
     const Context* context,
-    const MaybeF64* out);
+    MaybeF64* out);
 bool v8__Value__IsFunction(const Value* self);
 bool v8__Value__IsObject(const Value* self);
 bool v8__Value__IsArray(const Value* self);
+void v8__Value__InstanceOf(
+    const Value* self,
+    const Context* ctx,
+    const Object* object,
+    MaybeBool* out);
 
 // Array
 typedef struct Array Array;
@@ -353,6 +358,12 @@ void v8__Persistent__SetWeakFinalizer(
     void* finalizer_ctx,
     WeakCallback finalizer_cb,
     WeakCallbackType type);
+
+// WeakCallbackInfo
+Isolate* v8__WeakCallbackInfo__GetIsolate(
+    const WeakCallbackInfo* self);
+void* v8__WeakCallbackInfo__GetParameter(
+    const WeakCallbackInfo* self);
 
 // ObjectTemplate
 typedef struct Object Object;
