@@ -6,12 +6,14 @@ const c = @cImport({
 
 pub const PropertyAttribute = struct {
     pub const None = c.None;
+    pub const ReadOnly = c.ReadOnly;
 };
 
 // Currently, user callback functions passed into FunctionTemplate will need to have this declared as a param and then
 // converted to FunctionCallbackInfo to get a nicer interface.
-pub const RawFunctionCallbackInfo = c.FunctionCallbackInfo;
-pub const RawPropertyCallbackInfo = c.PropertyCallbackInfo;
+pub const C_FunctionCallbackInfo = c.FunctionCallbackInfo;
+pub const C_PropertyCallbackInfo = c.PropertyCallbackInfo;
+pub const C_WeakCallbackInfo = c.WeakCallbackInfo;
 
 pub const FunctionCallback = c.FunctionCallback;
 pub const AccessorNameGetterCallback = c.AccessorNameGetterCallback;
@@ -325,6 +327,10 @@ pub const ReturnValue = struct {
         c.v8__ReturnValue__Set(self.inner, getValueHandle(value));
     }
 
+    pub fn setValueHandle(self: Self, ptr: *const c.Value) void {
+        c.v8__ReturnValue__Set(self.inner, ptr);
+    }
+
     pub fn get(self: Self) Value {
         return .{
             .handle = c.v8__ReturnValue__Get(self.inner).?,
@@ -379,6 +385,14 @@ pub const FunctionTemplate = struct {
     pub fn setGetter(self: Self, name: anytype, getter: FunctionTemplate) void {
         c.v8__Template__SetAccessorProperty__DEFAULT(getTemplateHandle(self), getNameHandle(name), getter.handle);
     }
+
+    pub fn setClassName(self: Self, name: String) void {
+        c.v8__FunctionTemplate__SetClassName(self.handle, name.handle);
+    }
+
+    pub fn setReadOnlyPrototype(self: Self) void {
+        c.v8__FunctionTemplate__ReadOnlyPrototype(self.handle);
+    }
 };
 
 pub const Function = struct {
@@ -398,7 +412,7 @@ pub const Function = struct {
     }
 
     // Equavalent to js "new".
-    pub fn newInstance(self: Self, ctx: Context, args: []const Value) ?Object {
+    pub fn initInstance(self: Self, ctx: Context, args: []const Value) ?Object {
         const c_args = @ptrCast(?[*]const ?*c_void, args.ptr);
         if (c.v8__Function__NewInstance(self.handle, ctx.handle, @intCast(c_int, args.len), c_args)) |ret| {
             return Object{
@@ -416,9 +430,7 @@ pub const Function = struct {
     /// Should only be called if you know the underlying type is a v8.Persistent.
     pub fn castToPersistent(self: Self) Persistent {
         return .{
-            .inner = .{
-                .val_ptr = @ptrToInt(self.handle),
-            }
+            .handle = self.handle,
         };
     }
 };
@@ -426,27 +438,65 @@ pub const Function = struct {
 pub const Persistent = struct {
     const Self = @This();
 
-    inner: c.Persistent,
+    // The Persistent handle is just like other value handles for easy casting. 
+    // But when creating and operating on it, an indirect pointer is used to represent a c.Persistent struct (v8::Persistent<v8::Value> in C++).
+    handle: *const c_void,
 
     /// A new value is created that references the original value.
     pub fn init(isolate: Isolate, value: anytype) Self {
-        var inner: c.Persistent = undefined;
-        c.v8__Persistent__New(isolate.handle, getValueHandle(value), &inner);
+        var handle: *c_void = undefined;
+        c.v8__Persistent__New(isolate.handle, getValueHandle(value), @ptrCast(*c.Persistent, &handle));
         return .{
-            .inner = inner,
+            .handle = handle,
         };
     }
 
-    pub fn deinit(self: Self) void {
-        c.v8__Persistent__Reset(&self.inner);
+    pub fn deinit(self: *Self) void {
+        c.v8__Persistent__Reset(@ptrCast(*c.Persistent, &self.handle));
     }
 
     /// Should only be called if you know the underlying type is a v8.Function.
     pub fn castToFunction(self: Self) Function {
         return .{
-            .handle = @intToPtr(*const c.Function, self.inner.val_ptr),
+            .handle = @ptrCast(*const c.Function, self.handle),
         };
     }
+
+    /// Should only be called if you know the underlying type is a v8.Object.
+    pub fn castToObject(self: Self) Object {
+        return .{
+            .handle = @ptrCast(*const c.Object, self.handle),
+        };
+    }
+
+    pub fn toValue(self: Self) Value {
+        return .{
+            .handle = self.handle,
+        };
+    }
+
+    pub fn setWeak(self: *Self) void {
+        c.v8__Persistent__SetWeak(@ptrCast(*c.Persistent, &self.handle));
+    }
+
+    pub fn setWeakFinalizer(self: *Self, finalizer_ctx: *c_void, cb: c.WeakCallback, cb_type: c.WeakCallbackType) void {
+        c.v8__Persistent__SetWeakFinalizer(
+            @ptrCast(*c.Persistent, &self.handle),
+            finalizer_ctx, cb, cb_type
+        );
+    }
+};
+
+/// [V8]
+/// kParameter will pass a void* parameter back to the callback, kInternalFields
+/// will pass the first two internal fields back to the callback, kFinalizer
+/// will pass a void* parameter back, but is invoked before the object is
+/// actually collected, so it can be resurrected. In the last case, it is not
+/// possible to request a second pass callback.
+pub const WeakCallbackType = struct {
+    pub const kParameter = c.kParameter;
+    pub const kInternalFields = c.kInternalFields;
+    pub const kFinalizer = c.kFinalizer;
 };
 
 pub const ObjectTemplate = struct {
@@ -460,9 +510,9 @@ pub const ObjectTemplate = struct {
         };
     }
 
-    pub fn init(isolate: Isolate, constructor: *const c.FunctionTemplate) Self {
+    pub fn init(isolate: Isolate, constructor: FunctionTemplate) Self {
         return .{
-            .handle = c.v8__ObjectTemplate__New(isolate.handle, constructor).?,
+            .handle = c.v8__ObjectTemplate__New(isolate.handle, constructor.handle).?,
         };
     }
 
@@ -495,10 +545,26 @@ pub const ObjectTemplate = struct {
     }
 };
 
+pub const Array = struct {
+    const Self = @This();
+
+    handle: *const c.Array,
+
+    pub fn length(self: Self) u32 {
+        return c.v8__Array__Length(self.handle);
+    }
+};
+
 pub const Object = struct {
     const Self = @This();
 
     handle: *const c.Object,
+
+    pub fn init(isolate: Isolate) Self {
+        return .{
+            .handle = c.v8__Object__New(isolate.handle).?,
+        };
+    }
 
     pub fn setInternalField(self: Self, idx: u32, value: anytype) void {
         c.v8__Object__SetInternalField(self.handle, @intCast(c_int, idx), getValueHandle(value));
@@ -524,10 +590,40 @@ pub const Object = struct {
         };
     }
 
+    pub fn getAtIndex(self: Self, ctx: Context, idx: u32) Value {
+        return .{
+            .handle = c.v8__Object__GetIndex(self.handle, ctx.handle, idx).?,
+        };
+    }
+
     pub fn toValue(self: Self) Value {
         return .{
             .handle = self.handle,
         };
+    }
+
+    pub fn defineOwnProperty(self: Self, ctx: Context, name: anytype, value: anytype, attr: c.PropertyAttribute) ?bool {
+        var out: c.MaybeBool = undefined;
+        c.v8__Object__DefineOwnProperty(self.handle, ctx.handle, getNameHandle(name), getValueHandle(value), attr, &out);
+        if (out.has_value == 1) {
+            return out.value == 1;
+        } else return null;
+    }
+};
+
+pub const Number = struct {
+    const Self = @This();
+
+    handle: *const c.Number,
+
+    pub fn init(isolate: Isolate, val: f64) Self {
+        return .{
+            .handle = c.v8__Number__New(isolate.handle, val).?,
+        };
+    }
+
+    pub fn initBitCastedU64(isolate: Isolate, val: u64) Self {
+        return init(isolate, @bitCast(f64, val));
     }
 };
 
@@ -567,7 +663,9 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Value => val.handle,
         String => val.handle,
         Integer => val.handle,
-        Persistent => @intToPtr(*const c.Value, val.inner.val_ptr),
+        Number => val.handle,
+        Function => val.handle,
+        Persistent => val.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Value", .{@typeName(@TypeOf(val))})),
     });
 }
@@ -698,7 +796,7 @@ pub const String = struct {
     }
 
     pub fn lenUtf8(self: Self, isolate: Isolate) u32 {
-        return @intCast(u8, c.v8__String__Utf8Length(self.handle, isolate.handle));
+        return @intCast(u32, c.v8__String__Utf8Length(self.handle, isolate.handle));
     }
 
     pub fn writeUtf8(self: String, isolate: Isolate, buf: []const u8) u32 {
@@ -775,12 +873,26 @@ pub const Value = struct {
         }
     }
 
+    pub fn bitCastToU64(self: Self, ctx: Context) u64 {
+        var out: c.MaybeF64 = undefined;
+        c.v8__Value__NumberValue(self.handle, ctx.handle, &out);
+        if (out.has_value == 1) {
+            return @bitCast(u64, out.value);
+        } else {
+            return 0;
+        }
+    }
+
     pub fn isObject(self: Self) bool {
         return c.v8__Value__IsObject(self.handle);
     }
 
     pub fn isFunction(self: Self) bool {
         return c.v8__Value__IsFunction(self.handle);
+    }
+
+    pub fn isArray(self: Self) bool {
+        return c.v8__Value__IsArray(self.handle);
     }
 
     /// Should only be called if you know the underlying type is a v8.Function.
@@ -794,6 +906,13 @@ pub const Value = struct {
     pub fn castToObject(self: Self) Object {
         return .{
             .handle = @ptrCast(*const c.Object, self.handle),
+        };
+    }
+
+    /// Should only be called if you know the underlying type is a v8.Array.
+    pub fn castToArray(self: Self) Array {
+        return .{
+            .handle = @ptrCast(*const c.Array, self.handle),
         };
     }
 };

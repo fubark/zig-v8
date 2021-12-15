@@ -8,6 +8,7 @@ typedef struct String String;
 typedef struct Function Function;
 typedef struct FunctionTemplate FunctionTemplate;
 typedef struct Object Object;
+typedef struct Name Name;
 typedef struct Context Context;
 // Super type.
 typedef void Value;
@@ -29,6 +30,16 @@ typedef struct MaybeBool {
     bool has_value;
     bool value;
 } MaybeBool;
+typedef enum PropertyAttribute {
+    /** None. **/
+    None = 0,
+    /** ReadOnly, i.e., not writable. **/
+    ReadOnly = 1 << 0,
+    /** DontEnum, i.e., not enumerable. **/
+    DontEnum = 1 << 1,
+    /** DontDelete, i.e., not configurable. **/
+    DontDelete = 1 << 2
+} PropertyAttribute;
 
 // Platform
 typedef struct Platform Platform;
@@ -182,8 +193,15 @@ void v8__Value__NumberValue(
     const MaybeF64* out);
 bool v8__Value__IsFunction(const Value* self);
 bool v8__Value__IsObject(const Value* self);
+bool v8__Value__IsArray(const Value* self);
+
+// Array
+typedef struct Array Array;
+uint32_t v8__Array__Length(const Array* self);
 
 // Object
+const Object* v8__Object__New(
+    Isolate* isolate);
 const Value* v8__Object__GetInternalField(
     const Object* self,
     int index);
@@ -193,18 +211,35 @@ void v8__Object__SetInternalField(
     const Value* value);
 const Value* v8__Object__Get(
     const Object* self,
-    const Context* context,
+    const Context* ctx,
     const Value* key);
+const Value* v8__Object__GetIndex(
+    const Object* self,
+    const Context* ctx,
+    uint32_t idx);
 void v8__Object__Set(
-        const Object* self,
-        const Context* ctx,
-        const Value* key,
-        const Value* value,
-        MaybeBool* out);
+    const Object* self,
+    const Context* ctx,
+    const Value* key,
+    const Value* value,
+    MaybeBool* out);
+void v8__Object__DefineOwnProperty(
+    const Object* self,
+    const Context* ctx,
+    const Name* key,
+    const Value* value,
+    PropertyAttribute attr,
+    MaybeBool* out);
 
 // Exception
 const Value* v8__Exception__Error(
     const String* message);
+
+// Number
+typedef struct Number Number;
+const Number* v8__Number__New(
+    Isolate* isolate,
+    double value);
 
 // Integer
 typedef struct Integer Integer;
@@ -217,18 +252,7 @@ const Integer* v8__Integer__NewFromUnsigned(
 
 // Template
 typedef struct Template Template;
-typedef struct Name Name;
 typedef struct Data Data;
-typedef enum PropertyAttribute {
-    /** None. **/
-    None = 0,
-    /** ReadOnly, i.e., not writable. **/
-    ReadOnly = 1 << 0,
-    /** DontEnum, i.e., not enumerable. **/
-    DontEnum = 1 << 1,
-    /** DontDelete, i.e., not configurable. **/
-    DontDelete = 1 << 2
-} PropertyAttribute;
 void v8__Template__Set(
     const Template* self,
     const Name* key,
@@ -286,6 +310,11 @@ const ObjectTemplate* v8__FunctionTemplate__PrototypeTemplate(
     const FunctionTemplate* self);
 const Function* v8__FunctionTemplate__GetFunction(
     const FunctionTemplate* self, const Context* context);
+void v8__FunctionTemplate__SetClassName(
+    const FunctionTemplate* self,
+    const String* name);
+void v8__FunctionTemplate__ReadOnlyPrototype(
+    const FunctionTemplate* self);
 
 // Function
 const Value* v8__Function__Call(
@@ -309,7 +338,21 @@ void v8__Persistent__New(
     const Value* value,
     Persistent* out);
 void v8__Persistent__Reset(
-    const Persistent* self);
+    Persistent* self);
+void v8__Persistent__SetWeak(
+    Persistent* self);
+typedef struct WeakCallbackInfo WeakCallbackInfo;
+typedef void (*WeakCallback)(const WeakCallbackInfo*);
+typedef enum WeakCallbackType {
+    kParameter,
+    kInternalFields,
+    kFinalizer
+} WeakCallbackType;
+void v8__Persistent__SetWeakFinalizer(
+    Persistent* self,
+    void* finalizer_ctx,
+    WeakCallback finalizer_cb,
+    WeakCallbackType type);
 
 // ObjectTemplate
 typedef struct Object Object;

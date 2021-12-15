@@ -222,6 +222,14 @@ int v8__String__Utf8Length(const v8::String& self, v8::Isolate* isolate) {
     return self.Utf8Length(isolate);
 }
 
+// Number
+
+const v8::Number* v8__Number__New(
+        v8::Isolate* isolate,
+        double value) {
+    return *v8::Number::New(isolate, value);
+}
+
 // Integer
 
 const v8::Integer* v8__Integer__New(
@@ -260,6 +268,8 @@ void v8__Value__NumberValue(
 bool v8__Value__IsFunction(const v8::Value& self) { return self.IsFunction(); }
 
 bool v8__Value__IsObject(const v8::Value& self) { return self.IsObject(); }
+
+bool v8__Value__IsArray(const v8::Value& self) { return self.IsArray(); }
 
 // Template
 
@@ -318,7 +328,16 @@ void v8__ObjectTemplate__SetAccessor__DEFAULT2(
     ptr_to_local(&self)->SetAccessor(ptr_to_local(&key), getter, setter);
 }
 
+// Array
+
+uint32_t v8__Array__Length(const v8::Array& self) { return self.Length(); }
+
 // Object
+
+const v8::Object* v8__Object__New(
+        v8::Isolate* isolate) {
+    return local_to_ptr(v8::Object::New(isolate));
+}
 
 void v8__Object__SetInternalField(
         const v8::Object& self,
@@ -335,10 +354,19 @@ const v8::Value* v8__Object__GetInternalField(
 
 const v8::Value* v8__Object__Get(
         const v8::Object& self,
-        const v8::Context& context,
+        const v8::Context& ctx,
         const v8::Value& key) {
     return maybe_local_to_ptr(
-        ptr_to_local(&self)->Get(ptr_to_local(&context), ptr_to_local(&key))
+        ptr_to_local(&self)->Get(ptr_to_local(&ctx), ptr_to_local(&key))
+    );
+}
+
+const v8::Value* v8__Object__GetIndex(
+        const v8::Object& self,
+        const v8::Context& ctx,
+        uint32_t idx) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->Get(ptr_to_local(&ctx), idx)
     );
 }
 
@@ -352,6 +380,21 @@ void v8__Object__Set(
         ptr_to_local(&ctx),
         ptr_to_local(&key),
         ptr_to_local(&value)
+    );
+}
+
+void v8__Object__DefineOwnProperty(
+        const v8::Object& self,
+        const v8::Context& ctx,
+        const v8::Name& key,
+        const v8::Value& value,
+        v8::PropertyAttribute attr,
+        v8::Maybe<bool>* out) {
+    *out = ptr_to_local(&self)->DefineOwnProperty(
+        ptr_to_local(&ctx),
+        ptr_to_local(&key),
+        ptr_to_local(&value),
+        attr
     );
 }
 
@@ -445,6 +488,17 @@ const v8::Function* v8__FunctionTemplate__GetFunction(
     );
 }
 
+void v8__FunctionTemplate__SetClassName(
+        const v8::FunctionTemplate& self,
+        const v8::String& name) {
+    ptr_to_local(&self)->SetClassName(ptr_to_local(&name));
+}
+
+void v8__FunctionTemplate__ReadOnlyPrototype(
+        const v8::FunctionTemplate& self) {
+    ptr_to_local(&self)->ReadOnlyPrototype();
+}
+
 // Function
 
 const v8::Value* v8__Function__Call(
@@ -490,6 +544,19 @@ void v8__Persistent__Reset(
     // v8::Persistent by default uses NonCopyablePersistentTraits which will create a bad copy if we accept v8::Persistent<v8::Value> as the arg.
     // Instead we operate on its pointer.
     self->Reset();
+}
+
+void v8__Persistent__SetWeak(
+        v8::Persistent<v8::Value>* self) {
+    self->SetWeak();
+}
+
+void v8__Persistent__SetWeakFinalizer(
+        v8::Persistent<v8::Value>* self,
+        void* finalizer_ctx,
+        v8::WeakCallbackInfo<void>::Callback finalizer_cb,
+        v8::WeakCallbackType type) {
+    self->SetWeak(finalizer_ctx, finalizer_cb, type);
 }
 
 // Exception
