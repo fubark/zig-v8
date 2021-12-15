@@ -1,0 +1,40 @@
+name: Build V8
+
+on: [workflow_dispatch]
+
+job:
+	build:
+		name: host=${{ matrix.config.host }} target=${{ matrix.config.target }} mode=${{ matrix.config.mode }} 
+		runs-on: ${{ matrix.config.host }}
+		strategy:
+			matrix:
+				config:
+					- host: ubuntu-20.04
+					  target: x86_64-linux
+					  mode: release
+		steps:
+			- name: Clone repo.
+				uses: actions/checkout@v2
+				with:
+					fetch-depth: 1
+					submodules: recursive
+			- name: Install zig.
+				uses: goto-bus-stop/setup-zig@v1
+				with:
+					version: master
+			- name: Get V8 Source.
+				run: zig build get-v8
+			- name: Get GN/Ninja.
+				run: zig build get-tools
+			- name: Build release.
+				if: matrix.config.mode == 'release'
+				run: zig build -Drelease-safe
+			- name: Build debug.
+				if: matrix.config.mode == 'debug'
+				run: zig build
+			- name: Github Release.
+        uses: softprops/action-gh-release@59c3b4891632ff9a897f99a91d7bc557467a3a22
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: v8-out/ninja/obj/zig/libc_v8.a
