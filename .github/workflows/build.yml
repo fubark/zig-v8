@@ -2,7 +2,7 @@ name: Build V8
 
 on: [workflow_dispatch]
 
-job:
+jobs:
   build:
     name: host=${{ matrix.config.host }} target=${{ matrix.config.target }} mode=${{ matrix.config.mode }} 
     runs-on: ${{ matrix.config.host }}
