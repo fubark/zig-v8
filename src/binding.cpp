@@ -271,6 +271,14 @@ bool v8__Value__IsObject(const v8::Value& self) { return self.IsObject(); }
 
 bool v8__Value__IsArray(const v8::Value& self) { return self.IsArray(); }
 
+void v8__Value__InstanceOf(
+        const v8::Value& self,
+        const v8::Context& ctx,
+        const v8::Object& object,
+        v8::Maybe<bool>* out) {
+    *out = ptr_to_local(&self)->InstanceOf(ptr_to_local(&ctx), ptr_to_local(&object));
+}
+
 // Template
 
 void v8__Template__Set(
@@ -557,6 +565,18 @@ void v8__Persistent__SetWeakFinalizer(
         v8::WeakCallbackInfo<void>::Callback finalizer_cb,
         v8::WeakCallbackType type) {
     self->SetWeak(finalizer_ctx, finalizer_cb, type);
+}
+
+// WeakCallbackInfo
+
+v8::Isolate* v8__WeakCallbackInfo__GetIsolate(
+        const v8::WeakCallbackInfo<void>& self) {
+    return self.GetIsolate();
+}
+
+void* v8__WeakCallbackInfo__GetParameter(
+        const v8::WeakCallbackInfo<void>& self) {
+    return self.GetParameter();
 }
 
 // Exception
