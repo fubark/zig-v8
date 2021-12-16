@@ -26,15 +26,59 @@ jobs:
         run: zig build get-v8
       - name: Get GN/Ninja.
         run: zig build get-tools
+      - name: Cache.
+        uses: actions/cache@v2
+        with:
+          # Restore sccache so subsequent runs can reuse the cache.
+          # TODO: Might be useful to restore some of v8 source deps so gclient does less work.
+          path: |-
+            sccache
+          key:
+            c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
+          restore-keys:
+            c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
+      - name: Install and start sccache.
+        shell: pwsh
+        env:
+          SCCACHE_DIR: ${{ github.workspace }}/sccache
+          # Compiling all of v8 takes up about 100M so this is a good starting point.
+          SCCACHE_CACHE_SIZE: 128M
+          SCCACHE_IDLE_TIMEOUT: 0
+        run: |
+          $version = "0.2.15"
+          $platform =
+            @{ "macOS"   = "x86_64-apple-darwin"
+               "Linux"   = "x86_64-unknown-linux-musl"
+               "Windows" = "x86_64-pc-windows-msvc"
+             }.${{ runner.os }}
+          $basename = "sccache-$version-$platform"
+          $url = "https://github.com/mozilla/sccache/releases/download/" +
+                 "$version/$basename.tar.gz"
+          cd ~
+          curl -LO $url
+          tar -xzvf "$basename.tar.gz"
+          . $basename/sccache --start-server
+          echo "$(pwd)/$basename" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Build release.
         if: matrix.config.mode == 'release'
         run: zig build -Drelease-safe
       - name: Build debug.
         if: matrix.config.mode == 'debug'
         run: zig build
+      - name: Copy binary.
+        run: cp
+          v8-out/${{ matrix.config.target }}/${{ matrix.config.mode }}/ninja/obj/zig/libc_v8.a
+          v8-out/libc_v8_${{ matrix.config.target }}_${{ matrix.config.mode }}.a
       - name: Github Release.
         uses: softprops/action-gh-release@59c3b4891632ff9a897f99a91d7bc557467a3a22
+        # Github requires tags for releases.
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: v8-out/ninja/obj/zig/libc_v8.a
+          files: v8-out/libc_v8_${{ matrix.config.target }}_${{ matrix.config.mode }}.a
+      - name: Stop sccache.
+        if: always()
+        run: |
+          sccache --show-stats
+          sccache --stop-server
