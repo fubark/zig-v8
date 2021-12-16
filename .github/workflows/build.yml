@@ -22,6 +22,28 @@ jobs:
         uses: goto-bus-stop/setup-zig@v1
         with:
           version: master
+      - name: Install and start sccache.
+        shell: pwsh
+        env:
+          SCCACHE_DIR: ${{ github.workspace }}/sccache
+          # Compiling all of v8 takes up about 100M so this is a good starting point.
+          SCCACHE_CACHE_SIZE: 128M
+          SCCACHE_IDLE_TIMEOUT: 0
+        run: |
+          $version = "v0.2.15"
+          $platform =
+            @{ "macOS"   = "x86_64-apple-darwin"
+               "Linux"   = "x86_64-unknown-linux-musl"
+               "Windows" = "x86_64-pc-windows-msvc"
+             }.${{ runner.os }}
+          $basename = "sccache-$version-$platform"
+          $url = "https://github.com/mozilla/sccache/releases/download/" +
+                 "$version/$basename.tar.gz"
+          cd ~
+          curl -LO $url
+          tar -xzvf "$basename.tar.gz"
+          . $basename/sccache --start-server
+          echo "$(pwd)/$basename" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Get V8 Source.
         run: zig build get-v8
       - name: Get GN/Ninja.
@@ -37,28 +59,6 @@ jobs:
             c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
           restore-keys:
             c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
-      - name: Install and start sccache.
-        shell: pwsh
-        env:
-          SCCACHE_DIR: ${{ github.workspace }}/sccache
-          # Compiling all of v8 takes up about 100M so this is a good starting point.
-          SCCACHE_CACHE_SIZE: 128M
-          SCCACHE_IDLE_TIMEOUT: 0
-        run: |
-          $version = "0.2.15"
-          $platform =
-            @{ "macOS"   = "x86_64-apple-darwin"
-               "Linux"   = "x86_64-unknown-linux-musl"
-               "Windows" = "x86_64-pc-windows-msvc"
-             }.${{ runner.os }}
-          $basename = "sccache-$version-$platform"
-          $url = "https://github.com/mozilla/sccache/releases/download/" +
-                 "$version/$basename.tar.gz"
-          cd ~
-          curl -LO $url
-          tar -xzvf "$basename.tar.gz"
-          . $basename/sccache --start-server
-          echo "$(pwd)/$basename" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Build release.
         if: matrix.config.mode == 'release'
         run: zig build -Drelease-safe
