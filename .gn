@@ -30,12 +30,8 @@ default_args = {
   clang_use_chrome_plugins = false
   v8_monolithic = false
   v8_use_external_startup_data = false
+  
   v8_use_snapshot = true
   is_component_build = false
   win_crt_flavor_agnostic = true
-
-  # full debug info (symbol_level=2).
-  # Setting symbol_level=1 will produce enough information for stack traces, but not line-by-line debugging.
-  # Setting symbol_level=0 will include no debug symbols at all. Either will speed up the build compared to full symbols.
-  symbol_level = 1
 }
