@@ -54,8 +54,8 @@ test {
     try t.expectEqualStrings(res, "Hello, World! 🍏🍓1");
 }
 
-pub fn valueToRawUtf8Alloc(alloc: std.mem.Allocator, isolate: v8.Isolate, ctx: v8.Context, val: *const v8.Value) []const u8 {
-    const str = v8.valueToString(ctx, val);
+pub fn valueToRawUtf8Alloc(alloc: std.mem.Allocator, isolate: v8.Isolate, ctx: v8.Context, val: v8.Value) []const u8 {
+    const str = val.toString(ctx);
     const len = str.lenUtf8(isolate);
     const buf = alloc.alloc(u8, len) catch unreachable;
     _ = str.writeUtf8(isolate, buf);

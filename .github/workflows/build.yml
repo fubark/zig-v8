@@ -26,7 +26,7 @@ jobs:
         uses: actions/cache@v2
         with:
           # Restore sccache so subsequent runs can reuse the cache.
-          # TODO: Might be useful to restore some of v8 source deps so gclient does less work.
+          # TODO: Might be useful to restore some of v8 source deps so get-v8 does less work.
           path: |-
             sccache
           key:
@@ -37,7 +37,7 @@ jobs:
         shell: pwsh
         env:
           SCCACHE_DIR: ${{ github.workspace }}/sccache
-          # Compiling all of v8 takes up about 100M so this is a good starting point.
+          # Compiling all of v8 takes up about 100M for debug builds so this is a good starting point.
           SCCACHE_CACHE_SIZE: 128M
           SCCACHE_IDLE_TIMEOUT: 0
         run: |
@@ -56,10 +56,10 @@ jobs:
           chmod a+x $basename/sccache
           . $basename/sccache --start-server
           echo "$(pwd)/$basename" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Get V8 Tools.
+        run: zig build get-tools
       - name: Get V8 Source.
         run: zig build get-v8
-      - name: Get GN/Ninja.
-        run: zig build get-tools
       - name: Build release.
         if: matrix.config.mode == 'release'
         run: zig build -Drelease-safe

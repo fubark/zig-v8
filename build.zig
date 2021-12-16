@@ -1,4 +1,5 @@
 const std = @import("std");
+const json = std.json;
 const Builder = std.build.Builder;
 const LibExeObjStep = std.build.LibExeObjStep;
 const Step = std.build.Step;
@@ -14,7 +15,7 @@ pub fn build(b: *Builder) !void {
     b.step("get-tools", "Gets the build tools.").dependOn(&get_tools.step);
 
     const get_v8 = createGetV8(b);
-    b.step("get-v8", "Gets v8 source using gclient.").dependOn(&get_v8.step);
+    b.step("get-v8", "Gets v8 source using gclient.").dependOn(get_v8);
 
     const v8 = try createV8_Build(b);
     b.step("v8", "Build v8 c binding lib.").dependOn(&v8.step);
@@ -25,6 +26,14 @@ pub fn build(b: *Builder) !void {
     b.default_step.dependOn(&v8.step);
 }
 
+// When this is true, we'll strip V8 features down to a minimum so the resulting library is smaller.
+// eg. i18n will be excluded.
+const MinimalV8 = true;
+
+// gclient is comprehensive and will pull everything for the v8 project.
+// Set this to false to pull the minimal required src by parsing v8/DEPS and whitelisting deps we care about.
+const UseGclient = false;
+
 // V8's build process is complex and porting it to zig could take quite awhile.
 // It would be nice if there was a way to import .gn files into the zig build system.
 // For now we just use gn/ninja like rusty_v8 does: https://github.com/denoland/rusty_v8/blob/main/build.rs
@@ -34,19 +43,44 @@ fn createV8_Build(b: *Builder) !*std.build.LogStep {
 
     const step = b.addLog("Built V8\n", .{});
 
-    const mkpath = MakePathStep.create(b, "./gclient/v8/zig");
-    step.step.dependOn(&mkpath.step);
+    if (UseGclient) {
+        const mkpath = MakePathStep.create(b, "./gclient/v8/zig");
+        step.step.dependOn(&mkpath.step);
 
-    const cp = CopyFileStep.create(b, b.pathFromRoot("BUILD.gn"), b.pathFromRoot("gclient/v8/zig/BUILD.gn"));
-    step.step.dependOn(&cp.step);
+        const cp = CopyFileStep.create(b, b.pathFromRoot("BUILD.gclient.gn"), b.pathFromRoot("gclient/v8/zig/BUILD.gn"));
+        step.step.dependOn(&cp.step);
+    } else {
+        const mkpath = MakePathStep.create(b, "./v8/zig");
+        step.step.dependOn(&mkpath.step);
+
+        const cp = CopyFileStep.create(b, b.pathFromRoot("BUILD.gn"), b.pathFromRoot("v8/zig/BUILD.gn"));
+        step.step.dependOn(&cp.step);
+    }
 
     var gn_args = std.ArrayList([]const u8).init(b.allocator);
+
+    if (target.getOsTag() == .macos) {
+        try gn_args.append("target_os=\"mac\"");
+    }
+    if (target.getCpuArch() == .x86_64) {
+        try gn_args.append("target_cpu=\"x64\"");
+    }
+
     if (mode == .Debug) {
         try gn_args.append("is_debug=true");
+        // full debug info (symbol_level=2).
+        // Setting symbol_level=1 will produce enough information for stack traces, but not line-by-line debugging.
+        // Setting symbol_level=0 will include no debug symbols at all. Either will speed up the build compared to full symbols.
+        // This will eventually pass down to v8_symbol_level.
+        try gn_args.append("symbol_level=1");
     } else {
         try gn_args.append("is_debug=false");
-        // No symbols. This will eventually pass down to v8_symbol_level.
         try gn_args.append("symbol_level=0");
+    }
+
+    if (MinimalV8) {
+        // Don't add i18n for now. It has a large dependency on third_party/icu.
+        try gn_args.append("v8_enable_i18n_support=false");
     }
 
     if (mode != .Debug) {
@@ -92,11 +126,21 @@ fn createV8_Build(b: *Builder) !*std.build.LogStep {
     // --dotfile lets us use a different .gn outside of the source root.
     // --root-target is a directory that must be inside the source root where we can have a custom BUILD.gn.
     //      Since gclient/v8 is not part of our repo, we copy over BUILD.gn to gclient/v8/zig/BUILD.gn before we run gn.
-    var run_gn = b.addSystemCommand(&.{ gn, "--root=gclient/v8", "--root-target=//zig", "--dotfile=.gn", "gen", ninja_out_path, args });
-    step.step.dependOn(&run_gn.step);
+    // To see v8 dependency tree:
+    // cd gclient/v8 && gn desc ../../v8-out/x86_64-linux/release/ninja/ :v8 --tree
+    // We can't see our own config because gn desc doesn't accept a --root-target.
+    // One idea is to append our BUILD.gn to the v8 BUILD.gn instead of putting it in a subdirectory.
+    if (UseGclient) {
+        var run_gn = b.addSystemCommand(&.{ gn, "--root=gclient/v8", "--root-target=//zig", "--dotfile=.gn", "gen", ninja_out_path, args });
+        step.step.dependOn(&run_gn.step);
+    } else {
+        var run_gn = b.addSystemCommand(&.{ gn, "--root=v8", "--root-target=//zig", "--dotfile=.gn", "gen", ninja_out_path, args });
+        step.step.dependOn(&run_gn.step);
+    }
 
     const ninja = getNinjaPath(b);
-    var run_ninja = b.addSystemCommand(&.{ ninja, "-C", ninja_out_path });
+    // Only build our target. If no target is specified, ninja will build all the targets which includes developer tools, tests, etc.
+    var run_ninja = b.addSystemCommand(&.{ ninja, "-C", ninja_out_path, "c_v8" });
     step.step.dependOn(&run_ninja.step);
 
     return step;
@@ -134,20 +178,34 @@ const CheckV8DepsStep = struct {
     }
 };
 
-fn createGetV8(b: *Builder) *std.build.RunStep {
-    const mkpath = MakePathStep.create(b, "./gclient");
+fn createGetV8(b: *Builder) *std.build.Step {
+    if (UseGclient) {
+        const mkpath = MakePathStep.create(b, "./gclient");
 
-    // About depot_tools: https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools_tutorial.html#_setting_up
-    const cmd = b.addSystemCommand(&.{ b.pathFromRoot("./tools/depot_tools/fetch"), "v8" });
-    cmd.cwd = "./gclient";
-    cmd.addPathDir(b.pathFromRoot("./tools/depot_tools"));
-    cmd.step.dependOn(&mkpath.step);
-
-    return cmd;
+        // About depot_tools: https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools_tutorial.html#_setting_up
+        const cmd = b.addSystemCommand(&.{ b.pathFromRoot("./tools/depot_tools/fetch"), "v8" });
+        cmd.cwd = "./gclient";
+        cmd.addPathDir(b.pathFromRoot("./tools/depot_tools"));
+        cmd.step.dependOn(&mkpath.step);
+        return &cmd.step;
+    } else {
+        const step = GetV8SourceStep.create(b);
+        return &step.step;
+    }
 }
 
-fn createGetTools(b: *Builder) *std.build.RunStep {
-    const step = b.addSystemCommand(&.{ "python", "./tools/get_ninja_gn_binaries.py", "--dir", "./tools" });
+fn createGetTools(b: *Builder) *std.build.LogStep {
+    const step = b.addLog("Get Tools", .{});
+
+    var sub_step = b.addSystemCommand(&.{ "python", "./tools/get_ninja_gn_binaries.py", "--dir", "./tools" });
+    step.step.dependOn(&sub_step.step);
+
+    if (UseGclient) {
+        // Pull depot_tools for fetch tool.
+        sub_step = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://chromium.googlesource.com/chromium/tools/depot_tools.git", "tools/depot_tools"});
+        step.step.dependOn(&sub_step.step);
+    }
+
     return step;
 }
 
@@ -226,9 +284,166 @@ fn createTest(b: *Builder) *std.build.LibExeObjStep {
     step.setMainPkgPath(".");
     step.addIncludeDir("./src");
     step.linkLibC();
-    step.addAssemblyFile("./v8-out/ninja/obj/zig/libc_v8.a");
     if (builtin.os.tag == .linux) {
+        step.addAssemblyFile("./v8-out/x86_64-linux/release/ninja/obj/zig/libc_v8.a");
         step.linkSystemLibrary("unwind");
     }
     return step;
 }
+
+const DepEntry = struct {
+    const Self = @This();
+
+    alloc: std.mem.Allocator,
+    repo_url: []const u8,
+    repo_rev: []const u8,
+
+    pub fn deinit(self: Self) void {
+        self.alloc.free(self.repo_url);
+        self.alloc.free(self.repo_rev);
+    }
+};
+
+pub const GetV8SourceStep = struct {
+    const Self = @This();
+
+    step: Step,
+    b: *Builder,
+
+    pub fn create(b: *Builder) *Self {
+        const self = b.allocator.create(Self) catch unreachable;
+        self.* = .{
+            .b = b,
+            .step = Step.init(.run, "Get V8 Sources.", b.allocator, make),
+        };
+        return self;
+    }
+
+    fn parseDep(self: Self, deps: json.Value, key: []const u8) !DepEntry {
+        const val = deps.Object.get(key).?;
+
+        const i = std.mem.lastIndexOfScalar(u8, val.String, '@').?;
+        const repo_rev = try self.b.allocator.dupe(u8, val.String[i+1..]);
+
+        const repo_url = try std.mem.replaceOwned(u8, self.b.allocator, val.String[0..i], "@chromium_url", "https://chromium.googlesource.com");
+        return DepEntry{
+            .alloc = self.b.allocator,
+            .repo_url = repo_url,
+            .repo_rev = repo_rev,
+        };
+    }
+    
+    fn getDep(self: *Self, deps: json.Value, key: []const u8, local_path: []const u8) !void {
+        const dep = try self.parseDep(deps, key);
+        defer dep.deinit();
+        _ = try self.b.execFromStep(&.{ "git", "clone", dep.repo_url, local_path }, &self.step);
+        _ = try self.b.execFromStep(&.{ "git", "-C", local_path, "checkout", dep.repo_rev }, &self.step);
+    }
+
+    fn runHook(self: *Self, hooks: json.Value, name: []const u8) !void {
+        for (hooks.Array.items) |hook| {
+            if (std.mem.eql(u8, name, hook.Object.get("name").?.String)) {
+                const cmd = hook.Object.get("action").?.Array;
+                var args = std.ArrayList([]const u8).init(self.b.allocator);
+                defer args.deinit();
+                for (cmd.items) |it| {
+                    try args.append(it.String);
+                }
+                const cwd = self.b.pathFromRoot("v8");
+                _ = try self.cwdExec(cwd, args.items);
+                break;
+            }
+        }
+    }
+
+    fn cwdExec(self: Self, cwd: []const u8, argv: []const []const u8) ![]u8 {
+        const max_output_size = 400 * 1024;
+        const child = try std.ChildProcess.init(argv, self.b.allocator);
+        defer child.deinit();
+
+        child.stdin_behavior = .Ignore;
+        child.stdout_behavior = .Pipe;
+        child.stderr_behavior = .Inherit;
+        child.cwd = cwd;
+        var env_map: std.BufMap = try std.process.getEnvMap(self.b.allocator);
+        defer env_map.deinit();
+        child.env_map = &env_map;
+
+        try child.spawn();
+
+        const stdout = try child.stdout.?.reader().readAllAlloc(self.b.allocator, max_output_size);
+        errdefer self.b.allocator.free(stdout);
+
+        const term = try child.wait();
+        switch (term) {
+            .Exited => |code| {
+                if (code != 0) {
+                    return error.ExitCodeFailure;
+                }
+                return stdout;
+            },
+            .Signal, .Stopped, .Unknown => |_| {
+                return error.ProcessTerminated;
+            },
+        }
+    }
+
+    fn make(step: *Step) !void {
+        const self = @fieldParentPtr(Self, "step", step);
+
+        // Pull the minimum source we need by looking at DEPS.
+
+        // Clone V8 master.
+        _ = try self.b.execFromStep(&.{ "git", "clone", "--depth=1", "https://github.com/v8/v8.git", "v8" }, &self.step);
+
+        // Get DEPS in json.
+        const deps_json = try self.b.execFromStep(&.{ "python", "tools/parse_deps.py", "v8/DEPS" }, &self.step);
+        defer self.b.allocator.free(deps_json);
+
+        var p = json.Parser.init(self.b.allocator, false);
+        defer p.deinit();
+
+        var tree = try p.parse(deps_json);
+        defer tree.deinit();
+
+        var deps = tree.root.Object.get("deps").?;
+        var hooks = tree.root.Object.get("hooks").?;
+
+        // build
+        try self.getDep(deps, "build", "v8/build");
+
+        // Add an empty gclient_args.gni so gn is happy. gclient also creates an empty file.
+        const file = try std.fs.createFileAbsolute(self.b.pathFromRoot("v8/build/config/gclient_args.gni"), .{ .read = false, .truncate = true });
+        try file.writeAll("# Generated from build.zig");
+        file.close();
+
+        // buildtools
+        try self.getDep(deps, "buildtools", "v8/buildtools");
+
+        // libc++
+        try self.getDep(deps, "buildtools/third_party/libc++/trunk", "v8/buildtools/third_party/libc++/trunk");
+
+        // tools/clang
+        try self.getDep(deps, "tools/clang", "v8/tools/clang");
+
+        try self.runHook(hooks, "clang");
+
+        // third_party/zlib
+        try self.getDep(deps, "third_party/zlib", "v8/third_party/zlib");
+
+        // libc++abi
+        try self.getDep(deps, "buildtools/third_party/libc++abi/trunk", "v8/buildtools/third_party/libc++abi/trunk");
+
+        // googletest
+        try self.getDep(deps, "third_party/googletest/src", "v8/third_party/googletest/src");
+
+        // trace_event
+        try self.getDep(deps, "base/trace_event/common", "v8/base/trace_event/common");
+
+        // jinja2
+        try self.getDep(deps, "third_party/jinja2", "v8/third_party/jinja2");
+
+        // markupsafe
+        try self.getDep(deps, "third_party/markupsafe", "v8/third_party/markupsafe");
+    }
+};
