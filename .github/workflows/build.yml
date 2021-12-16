@@ -22,6 +22,17 @@ jobs:
         uses: goto-bus-stop/setup-zig@v1
         with:
           version: master
+      - name: Cache.
+        uses: actions/cache@v2
+        with:
+          # Restore sccache so subsequent runs can reuse the cache.
+          # TODO: Might be useful to restore some of v8 source deps so gclient does less work.
+          path: |-
+            sccache
+          key:
+            c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
+          restore-keys:
+            c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
       - name: Install and start sccache.
         shell: pwsh
         env:
@@ -48,17 +59,6 @@ jobs:
         run: zig build get-v8
       - name: Get GN/Ninja.
         run: zig build get-tools
-      - name: Cache.
-        uses: actions/cache@v2
-        with:
-          # Restore sccache so subsequent runs can reuse the cache.
-          # TODO: Might be useful to restore some of v8 source deps so gclient does less work.
-          path: |-
-            sccache
-          key:
-            c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
-          restore-keys:
-            c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
       - name: Build release.
         if: matrix.config.mode == 'release'
         run: zig build -Drelease-safe
