@@ -59,8 +59,11 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
     var gn_args = std.ArrayList([]const u8).init(b.allocator);
 
-    if (target.getOsTag() == .macos) {
-        try gn_args.append("target_os=\"mac\"");
+    switch (target.getOsTag()) {
+        .macos => try gn_args.append("target_os=\"mac\""),
+        .windows => try gn_args.append("target_os=\"win\""),
+        .linux => try gn_args.append("target_os=\"linux\""),
+        else => {},
     }
     if (target.getCpuArch() == .x86_64) {
         try gn_args.append("target_cpu=\"x64\"");
