@@ -11,16 +11,19 @@ pub fn build(b: *Builder) !void {
     // Options.
     //const build_v8 = b.option(bool, "build_v8", "Whether to build from v8 source") orelse false;
 
+    const mode = b.standardReleaseOptions();
+    const target = b.standardTargetOptions(.{});
+
     const get_tools = createGetTools(b);
     b.step("get-tools", "Gets the build tools.").dependOn(&get_tools.step);
 
     const get_v8 = createGetV8(b);
     b.step("get-v8", "Gets v8 source using gclient.").dependOn(get_v8);
 
-    const v8 = try createV8_Build(b);
+    const v8 = try createV8_Build(b, target, mode);
     b.step("v8", "Build v8 c binding lib.").dependOn(&v8.step);
 
-    const run_test = createTest(b);
+    const run_test = createTest(b, target, mode);
     b.step("test", "Run tests.").dependOn(&run_test.step);
 
     b.default_step.dependOn(&v8.step);
@@ -37,10 +40,7 @@ const UseGclient = false;
 // V8's build process is complex and porting it to zig could take quite awhile.
 // It would be nice if there was a way to import .gn files into the zig build system.
 // For now we just use gn/ninja like rusty_v8 does: https://github.com/denoland/rusty_v8/blob/main/build.rs
-fn createV8_Build(b: *Builder) !*std.build.LogStep {
-    const mode = b.standardReleaseOptions();
-    const target = b.standardTargetOptions(.{});
-
+fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode) !*std.build.LogStep {
     const step = b.addLog("Built V8\n", .{});
 
     if (UseGclient) {
@@ -89,7 +89,7 @@ fn createV8_Build(b: *Builder) !*std.build.LogStep {
     }
 
     // Fix GN's host_cpu detection when using x86_64 bins on Apple Silicon
-    if (builtin.os.tag == .macos and builtin.os.arch == .aarch64) {
+    if (builtin.os.tag == .macos and builtin.cpu.arch == .aarch64) {
         try gn_args.append("host_cpu=\"arm64\"");
     }
 
@@ -113,9 +113,8 @@ fn createV8_Build(b: *Builder) !*std.build.LogStep {
 
     const mode_str: []const u8 = if (mode == .Debug) "debug" else "release";
     // GN will generate ninja build files in ninja_out_path which will also contain the artifacts after running ninja.
-    const ninja_out_path = try std.fmt.allocPrint(b.allocator, "v8-out/{s}-{s}/{s}/ninja", .{
-        @tagName(target.getCpuArch()),
-        @tagName(target.getOsTag()),
+    const ninja_out_path = try std.fmt.allocPrint(b.allocator, "v8-out/{s}/{s}/ninja", .{
+        getTargetId(b.allocator, target),
         mode_str,
     });
 
@@ -144,6 +143,10 @@ fn createV8_Build(b: *Builder) !*std.build.LogStep {
     step.step.dependOn(&run_ninja.step);
 
     return step;
+}
+
+fn getTargetId(alloc: std.mem.Allocator, target: std.zig.CrossTarget) []const u8 {
+    return std.fmt.allocPrint(alloc, "{s}-{s}", .{ @tagName(target.getCpuArch()), @tagName(target.getOsTag()) }) catch unreachable;
 }
 
 const CheckV8DepsStep = struct {
@@ -195,7 +198,7 @@ fn createGetV8(b: *Builder) *std.build.Step {
 }
 
 fn createGetTools(b: *Builder) *std.build.LogStep {
-    const step = b.addLog("Get Tools", .{});
+    const step = b.addLog("Get Tools\n", .{});
 
     var sub_step = b.addSystemCommand(&.{ "python", "./tools/get_ninja_gn_binaries.py", "--dir", "./tools" });
     step.step.dependOn(&sub_step.step);
@@ -279,13 +282,19 @@ const CopyFileStep = struct {
     }
 };
 
-fn createTest(b: *Builder) *std.build.LibExeObjStep {
+fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode) *std.build.LibExeObjStep {
     const step = b.addTest("./test/test.zig");
     step.setMainPkgPath(".");
     step.addIncludeDir("./src");
     step.linkLibC();
+    
+    const mode_str: []const u8 = if (mode == .Debug) "debug" else "release";
+    const lib_path = std.fmt.allocPrint(b.allocator, "./v8-out/{s}/{s}/ninja/obj/zig/libc_v8.a", .{
+        getTargetId(b.allocator, target),
+        mode_str,
+    }) catch unreachable;
+    step.addAssemblyFile(lib_path);
     if (builtin.os.tag == .linux) {
-        step.addAssemblyFile("./v8-out/x86_64-linux/release/ninja/obj/zig/libc_v8.a");
         step.linkSystemLibrary("unwind");
     }
     return step;
