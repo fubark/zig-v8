@@ -75,10 +75,10 @@ jobs:
       - name: Get V8 Source.
         run: zig build get-v8
       - name: Build release.
-        if: github.event.inputs.target.mode == 'release'
+        if: github.event.inputs.mode == 'release'
         run: zig build -Drelease-safe
       - name: Build debug.
-        if: github.event.inputs.target.mode == 'debug'
+        if: github.event.inputs.mode == 'debug'
         run: zig build
       - name: Copy binary.
         run: cp
