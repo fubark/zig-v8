@@ -28,9 +28,10 @@ jobs:
           # Restore sccache so subsequent runs can reuse the cache.
           # TODO: Might be useful to restore some of v8 source deps so get-v8 does less work.
           path: |-
-            sccache
+            ${{ github.workspace }}/sccache
           key:
             c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
+          # restore-keys doesn't do much here but keep it in case we need it later.
           restore-keys:
             c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
       - name: Install and start sccache.
