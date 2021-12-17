@@ -1,18 +1,23 @@
-name: Build V8
+name: Build V8 (Single)
 
-on: [workflow_dispatch]
-
-jobs:
-  build:
-    name: host=${{ matrix.config.host }} target=${{ matrix.config.target }} mode=${{ matrix.config.mode }} 
-    runs-on: ${{ matrix.config.host }}
-    strategy:
-      fail-fast: true
-      matrix:
-        config:
+on: 
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        description: Target
+        options:
           - host: ubuntu-20.04
             target: x86_64-linux
             mode: release
+          - host: macos-10.15
+            target: x86_64-macos
+            mode: release
+
+jobs:
+  build:
+    name: host=${{ github.event.inputs.target.host }} target=${{ github.event.inputs.target.target }} mode=${{ github.event.inputs.target.mode }} 
+    runs-on: ${{ github.event.inputs.target.host }}
     steps:
       - name: Clone repo.
         uses: actions/checkout@v2
@@ -31,10 +36,10 @@ jobs:
           path: |-
             ${{ github.workspace }}/sccache
           key:
-            c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
+            c_v8-${{ github.event.inputs.target.target }}-${{ github.event.inputs.target.mode }}-
           # restore-keys doesn't do much here but keep it in case we need it later.
           restore-keys:
-            c_v8-${{ matrix.config.target }}-${{ matrix.config.mode }}-
+            c_v8-${{ github.event.inputs.target.target }}-${{ github.event.inputs.target.mode }}-
       - name: Install and start sccache.
         shell: pwsh
         env:
@@ -63,15 +68,15 @@ jobs:
       - name: Get V8 Source.
         run: zig build get-v8
       - name: Build release.
-        if: matrix.config.mode == 'release'
+        if: github.event.inputs.target.mode == 'release'
         run: zig build -Drelease-safe
       - name: Build debug.
-        if: matrix.config.mode == 'debug'
+        if: github.event.inputs.target.mode == 'debug'
         run: zig build
       - name: Copy binary.
         run: cp
-          v8-out/${{ matrix.config.target }}/${{ matrix.config.mode }}/ninja/obj/zig/libc_v8.a
-          v8-out/libc_v8_${{ matrix.config.target }}_${{ matrix.config.mode }}.a
+          v8-out/${{ github.event.inputs.target.target }}/${{ github.event.inputs.target.mode }}/ninja/obj/zig/libc_v8.a
+          v8-out/libc_v8_${{ github.event.inputs.target.target }}_${{ github.event.inputs.target.mode }}.a
       - name: Github Release.
         uses: softprops/action-gh-release@59c3b4891632ff9a897f99a91d7bc557467a3a22
         # Github requires tags for releases.
@@ -79,7 +84,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: v8-out/libc_v8_${{ matrix.config.target }}_${{ matrix.config.mode }}.a
+          files: v8-out/libc_v8_${{ github.event.inputs.target.target }}_${{ github.event.inputs.target.mode }}.a
       - name: Stop sccache.
         if: always()
         run: |

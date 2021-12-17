@@ -7,9 +7,9 @@ Builds V8 from official source and provides C bindings and a Zig API. This would
 | Status | Platform | Size (demo.zig)* |
 | ------ | -------- | -------- |
 | ✅ | Linux x64 | TBD |
-| Not yet | Windows x64 | TBD |
-| Not yet | macOS x64 | TBD |
-| Not yet | macOS arm64 | TBD |
+| Soon | Windows x64 | TBD |
+| ✅ | macOS x64 | TBD |
+| Soon | macOS arm64 | TBD |
 
 \* We'll add a size metric for an embedded V8 demo binary once we get the build to work on more platforms.
 
