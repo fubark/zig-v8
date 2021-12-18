@@ -48,14 +48,14 @@ jobs:
         with:
           script: |
             const ref = 'refs/tags/${{ env.BUILD_TAG }}';
-            const res = github.rest.git.getRef({
+            const res = await github.rest.git.getRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref,
             });
             console.log(res);
 
-            github.rest.git.updateRef({
+            await github.rest.git.updateRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: 'refs/tags/${{ env.BUILD_TAG }}',
