@@ -9,12 +9,14 @@ on:
         options:
           - ubuntu-20.04
           - macos-10.15
+          - windows-2019
       target:
         type: choice
         description: Target
         options:
           - x86_64-linux
           - x86_64-macos
+          - x86_64-windows-msvc
       mode:
         type: choice
         description: Mode
