@@ -39,10 +39,9 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
-      - name: Get tag name.
-        id: vars
+      - name: Get build tag.
         shell: bash
-        run: echo "::set-output name=tag::$(cat ${{ github.workspace }}/V8_REVISION | xargs)"
+        run: echo "BUILD_TAG=$(cat '${{ github.workspace }}/V8_REVISION' | xargs)" >> $GITHUB_ENV
       - name: Create/Update tag.
         uses: actions/github-script@v5
         with:
@@ -50,7 +49,7 @@ jobs:
             github.rest.git.updateRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/${{ steps.vars.tag }}',
+              ref: 'refs/tags/${{ env.BUILD_TAGS }}',
               sha: context.sha,
               force: true
             })
