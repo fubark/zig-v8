@@ -79,7 +79,7 @@ jobs:
           # Restore sccache so subsequent runs can reuse the cache.
           # TODO: Might be useful to restore some of v8 source deps so get-v8 does less work.
           path: |-
-            ${{ github.workspace }}/sccache
+            sccache
           key:
             c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
           # restore-keys doesn't do much here but keep it in case we need it later.
