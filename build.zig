@@ -61,7 +61,13 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
     switch (target.getOsTag()) {
         .macos => try gn_args.append("target_os=\"mac\""),
-        .windows => try gn_args.append("target_os=\"win\""),
+        .windows => {
+            try gn_args.append("target_os=\"win\"");
+            if (!UseGclient) {
+                // Don't use depot_tools.
+                try b.env_map.put("DEPOT_TOOLS_WIN_TOOLCHAIN", "0");
+            }
+        },
         .linux => try gn_args.append("target_os=\"linux\""),
         else => {},
     }
@@ -223,7 +229,8 @@ fn getNinjaPath(b: *Builder) []const u8 {
         else => unreachable,
     };
     const ext = if (builtin.os.tag == .windows) ".exe" else "";
-    return std.fs.path.resolve(b.allocator, &.{ "./tools/ninja_gn_binaries-20210101", platform, "ninja", ext }) catch unreachable;
+    const bin = std.mem.concat(b.allocator, u8, &.{ "ninja", ext }) catch unreachable;
+    return std.fs.path.resolve(b.allocator, &.{ "./tools/ninja_gn_binaries-20210101", platform, bin }) catch unreachable;
 }
 
 fn getGnPath(b: *Builder) []const u8 {
@@ -234,7 +241,8 @@ fn getGnPath(b: *Builder) []const u8 {
         else => unreachable,
     };
     const ext = if (builtin.os.tag == .windows) ".exe" else "";
-    return std.fs.path.resolve(b.allocator, &.{ "./tools/ninja_gn_binaries-20210101", platform, "gn", ext }) catch unreachable;
+    const bin = std.mem.concat(b.allocator, u8, &.{ "gn", ext }) catch unreachable;
+    return std.fs.path.resolve(b.allocator, &.{ "./tools/ninja_gn_binaries-20210101", platform, bin }) catch unreachable;
 }
 
 const MakePathStep = struct {
@@ -289,16 +297,30 @@ fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode) 
     const step = b.addTest("./test/test.zig");
     step.setMainPkgPath(".");
     step.addIncludeDir("./src");
+    step.setTarget(target);
+    step.setBuildMode(mode);
     step.linkLibC();
     
     const mode_str: []const u8 = if (mode == .Debug) "debug" else "release";
-    const lib_path = std.fmt.allocPrint(b.allocator, "./v8-out/{s}/{s}/ninja/obj/zig/libc_v8.a", .{
+    const lib: []const u8 = if (builtin.os.tag == .windows) "c_v8.lib" else "libc_v8.a";
+    const lib_path = std.fmt.allocPrint(b.allocator, "./v8-out/{s}/{s}/ninja/obj/zig/{s}", .{
         getTargetId(b.allocator, target),
         mode_str,
+        lib,
     }) catch unreachable;
     step.addAssemblyFile(lib_path);
     if (builtin.os.tag == .linux) {
         step.linkSystemLibrary("unwind");
+    } else if (builtin.os.tag == .windows) {
+        step.linkSystemLibrary("Dbghelp");
+        step.linkSystemLibrary("Winmm");
+        step.linkSystemLibrary("Advapi32");
+
+        // We need libcpmt to statically link with c++ stl for exception_ptr references from V8. 
+        // Zig already adds the SDK path to the linker but doesn't sync it to the internal libs array which linkSystemLibrary checks against.
+        // For now we'll hardcode the MSVC path here.
+        step.addLibPath("C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.29.30133/lib/x64");
+        step.linkSystemLibrary("libcpmt");
     }
     return step;
 }
@@ -404,6 +426,7 @@ pub const GetV8SourceStep = struct {
         const self = @fieldParentPtr(Self, "step", step);
 
         // Pull the minimum source we need by looking at DEPS.
+        // TODO: Make this sync if we already pulled the sources.
 
         // Clone V8 master.
         _ = try self.b.execFromStep(&.{ "git", "clone", "--depth=1", "https://github.com/v8/v8.git", "v8" }, &self.step);
@@ -427,6 +450,7 @@ pub const GetV8SourceStep = struct {
         // Add an empty gclient_args.gni so gn is happy. gclient also creates an empty file.
         const file = try std.fs.createFileAbsolute(self.b.pathFromRoot("v8/build/config/gclient_args.gni"), .{ .read = false, .truncate = true });
         try file.writeAll("# Generated from build.zig");
+
         file.close();
 
         // buildtools
@@ -457,5 +481,10 @@ pub const GetV8SourceStep = struct {
 
         // markupsafe
         try self.getDep(deps, "third_party/markupsafe", "v8/third_party/markupsafe");
+
+        // For windows.
+        if (builtin.os.tag == .windows) {
+            try self.runHook(hooks, "lastchange");
+        }
     }
 };
