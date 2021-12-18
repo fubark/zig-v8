@@ -39,6 +39,19 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+      - name: Get tag name.
+        id: vars
+        run: echo ::set-output name=tag::$(cat ${{ github.workspace }}/V8_REVISION }} | xargs)
+      - name: Create/Update tag.
+        uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/${{ steps.vars.tag }}',
+              sha: context.sha
+            })
       - name: Install zig.
         uses: goto-bus-stop/setup-zig@v1
         with:

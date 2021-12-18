@@ -31,7 +31,7 @@ zig build get-v8
 
 # Build, resulting static library should be at:
 # v8-out/{target}/{debug/release}/ninja/obj/zig/libc_v8.a
-# On windows, use msvc: zig build -Drelease-safe -Dtarget=x86_64-windows-msvc.
+# On windows, use msvc: zig build -Drelease-safe -Dtarget=x86_64-windows-msvc
 zig build
 ```
 
