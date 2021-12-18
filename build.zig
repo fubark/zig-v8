@@ -442,6 +442,7 @@ pub const GetV8SourceStep = struct {
         defer tree.deinit();
 
         var deps = tree.root.Object.get("deps").?;
+_ = deps;
         var hooks = tree.root.Object.get("hooks").?;
 
         // build
@@ -484,7 +485,21 @@ pub const GetV8SourceStep = struct {
 
         // For windows.
         if (builtin.os.tag == .windows) {
-            try self.runHook(hooks, "lastchange");
+            // lastchange.py is flaky when it tries to do git commands from subprocess.Popen. Will sometimes get [WinError 50].
+            // For now we'll just do it in zig.
+            // try self.runHook(hooks, "lastchange");
+
+            const merge_base_sha = "HEAD";
+            const commit_filter = "^Change-Id:";
+            const grep_arg = try std.fmt.allocPrint(self.b.allocator, "--grep={s}", .{commit_filter});
+            const version_info = try self.b.execFromStep(&.{ "git", "-C", "v8/build", "log", "-1", "--format=%H %ct", grep_arg, merge_base_sha }, &self.step);
+            const idx = std.mem.indexOfScalar(u8, version_info, ' ').?;
+            const commit_timestamp = version_info[idx+1..];
+
+            // build/timestamp.gni expects the file to be just the unix timestamp.
+            const write = std.fs.createFileAbsolute(self.b.pathFromRoot("v8/build/util/LASTCHANGE.committime"), .{ .truncate = true }) catch unreachable;
+            defer write.close();
+            write.writeAll(commit_timestamp) catch unreachable; 
         }
     }
 };
