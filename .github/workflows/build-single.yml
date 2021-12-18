@@ -48,20 +48,26 @@ jobs:
         with:
           script: |
             const ref = 'refs/tags/${{ env.BUILD_TAG }}';
-            const res = await github.rest.git.getRef({
+            const res = await github.rest.git.listMatchingRefs({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref,
             });
-            console.log(res);
-
-            await github.rest.git.updateRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: 'refs/tags/${{ env.BUILD_TAG }}',
-              sha: context.sha,
-              force: true
-            })
+            if (res.len > 0) {
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref,
+                sha: context.sha,
+              });
+            } else {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref,
+                sha: context.sha,
+              });
+            }
       - name: Install zig.
         uses: goto-bus-stop/setup-zig@v1
         with:
