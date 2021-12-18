@@ -49,7 +49,7 @@ jobs:
             github.rest.git.updateRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/${{ env.BUILD_TAGS }}',
+              ref: 'refs/tags/${{ env.BUILD_TAG }}',
               sha: context.sha,
               force: true
             })
