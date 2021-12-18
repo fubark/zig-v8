@@ -338,6 +338,12 @@ const DepEntry = struct {
     }
 };
 
+fn getV8Rev(b: *Builder) ![]const u8 {
+    const file = try std.fs.openFileAbsolute(b.pathFromRoot("V8_REVISION"), .{ .read = true, .write = false});
+    defer file.close();
+    return std.mem.trim(u8, try file.readToEndAlloc(b.allocator, 1e9), "\n\r ");
+}
+
 pub const GetV8SourceStep = struct {
     const Self = @This();
 
@@ -428,8 +434,11 @@ pub const GetV8SourceStep = struct {
         // Pull the minimum source we need by looking at DEPS.
         // TODO: Make this sync if we already pulled the sources.
 
-        // Clone V8 master.
-        _ = try self.b.execFromStep(&.{ "git", "clone", "--depth=1", "https://github.com/v8/v8.git", "v8" }, &self.step);
+        // Get revision/tag to checkout.
+        const v8_rev = try getV8Rev(self.b);
+
+        // Clone V8.
+        _ = try self.b.execFromStep(&.{ "git", "clone", "--depth=1", "--branch", v8_rev, "https://chromium.googlesource.com/v8/v8.git", "v8" }, &self.step);
 
         // Get DEPS in json.
         const deps_json = try self.b.execFromStep(&.{ "python", "tools/parse_deps.py", "v8/DEPS" }, &self.step);
@@ -442,7 +451,6 @@ pub const GetV8SourceStep = struct {
         defer tree.deinit();
 
         var deps = tree.root.Object.get("deps").?;
-_ = deps;
         var hooks = tree.root.Object.get("hooks").?;
 
         // build
