@@ -79,7 +79,9 @@ jobs:
           # Restore sccache so subsequent runs can reuse the cache.
           # TODO: Might be useful to restore some of v8 source deps so get-v8 does less work.
           path: |-
-            sccache
+            # Prefer absolute paths for linux/mac.
+            # Absolute path doesn't work on windows atm but relative paths works since the working directory happens to be github.workspace.
+            ${{ contains(env.BUILD_TARGET, 'windows') && 'sccache' || join([github.workspace, '/sccache'], '') }}
           key:
             c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
           # restore-keys doesn't do much here but keep it in case we need it later.
