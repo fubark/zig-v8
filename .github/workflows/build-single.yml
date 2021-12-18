@@ -41,6 +41,7 @@ jobs:
           submodules: recursive
       - name: Get tag name.
         id: vars
+        shell: bash
         run: echo "::set-output name=tag::$(cat ${{ github.workspace }}/V8_REVISION | xargs)"
       - name: Create/Update tag.
         uses: actions/github-script@v5
