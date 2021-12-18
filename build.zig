@@ -107,6 +107,10 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         const cc_wrapper = try std.fmt.allocPrint(b.allocator, "cc_wrapper=\"{s}\"", .{path});
         try gn_args.append(cc_wrapper);
     } else {
+        if (builtin.os.tag == .windows) {
+            // findProgram look for "PATH" case sensitive.
+            try b.env_map.put("PATH", b.env_map.get("Path") orelse "");
+        }
         if (b.findProgram(&.{"sccache"}, &.{})) |_| {
             const cc_wrapper = try std.fmt.allocPrint(b.allocator, "cc_wrapper=\"{s}\"", .{"sccache"});
             try gn_args.append(cc_wrapper);
@@ -114,6 +118,11 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
             if (err != error.FileNotFound) {
                 unreachable;
             }
+        }
+        if (builtin.os.tag == .windows) {
+            // After creating PATH for windows so findProgram can find sccache, we need to delete it
+            // or a gn tool (build/toolchain/win/setup_toolchain.py) will complain about not finding cl.exe.
+            b.env_map.remove("PATH");
         }
     }
 
