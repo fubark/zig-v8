@@ -81,7 +81,7 @@ jobs:
           path: |-
             # Prefer absolute paths for linux/mac.
             # Absolute path doesn't work on windows atm but relative paths works since the working directory happens to be github.workspace.
-            ${{ contains(env.BUILD_TARGET, 'windows') && 'sccache' || join([github.workspace, '/sccache'], '') }}
+            ${{ contains(env.BUILD_TARGET, 'windows') && 'sccache' || format('{0}/sccache', github.workspace) }}
           key:
             c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
           # restore-keys doesn't do much here but keep it in case we need it later.
