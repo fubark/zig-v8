@@ -41,11 +41,20 @@ jobs:
           submodules: recursive
       - name: Get build tag.
         shell: bash
+        # Need single quotes or path sep becomes escapes on windows host. xargs does trimming.
         run: echo "BUILD_TAG=$(cat '${{ github.workspace }}/V8_REVISION' | xargs)" >> $GITHUB_ENV
       - name: Create/Update tag.
         uses: actions/github-script@v5
         with:
           script: |
+            const ref = 'refs/tags/${{ env.BUILD_TAG }}';
+            const res = github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref,
+            });
+            console.log(res);
+
             github.rest.git.updateRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
