@@ -76,7 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: ${{ env.BUILD_TAG }}
-          tag_name: refs/tags/${{ env.BUILD_TAG }}
+          tag_name: ${{ env.BUILD_TAG }}
           files: ${{ github.workspace }}/README.md
       - name: Install zig.
         uses: goto-bus-stop/setup-zig@v1
