@@ -4,18 +4,19 @@ Builds V8 from official source and provides C bindings and a Zig API. This would
 
 ## Project Status
 
-| Status | Platform | Size (demo.zig)* |
+| Status | Platform | Demo Binary (shell.zig)* |
 | ------ | -------- | -------- |
-| ✅ | Linux x64 | TBD |
-| ✅ | Windows x64 | TBD |
-| ✅ | macOS x64 | TBD |
+| ✅ | Linux x64 | shell - 19 M |
+| ✅ | Windows x64 | shell.exe - TBD |
+| ✅ | macOS x64 | shell - TBD |
 | Soon | macOS arm64 | TBD |
 
-\* We'll add a size metric for an embedded V8 demo binary once we get the build to work on more platforms.
+\* shell.zig is a JS repl and statically linked with v8. Compiled with -Drelease-safe. The V8 dependency can be further reduced in size if you don't need all the features (eg. disable WASM runtime).
 
 ## Build
 By default UseGclient=false in build.zig. This will pull the minimum sources and deps needed to build v8 and reduce build times.
-If you want to include everything, set UseGclient=true. Build times can be quite long but afterwards rerunning "zig build" should be incremental. You can also use sccache for better incremental build times.
+
+If you want to include everything, set UseGclient=true. Build times can be quite long using gclient but afterwards rerunning "zig build" should be incremental. You can also use sccache for better incremental build times.
 
 ```sh
 # Clone the repo.
@@ -31,13 +32,20 @@ zig build get-v8
 
 # Build, resulting static library should be at:
 # v8-out/{target}/{debug/release}/ninja/obj/zig/libc_v8.a
+# For release builds: zig build -Drelease-safe
 # On windows, use msvc: zig build -Drelease-safe -Dtarget=x86_64-windows-msvc
 zig build
+```
+## Demo
+```sh
+# shell.zig is a simple JS repl.
+# Assumes you've already built v8.
+zig build run -Dpath="src/shell.zig" -Drelease-safe
 ```
 
 ## Usage
 
-See test/test.zig on how to use the library with the Zig API as well as build.zig (fn createTest) on how to link with the built V8 static library.
+See src/shell.zig or test/test.zig on how to use the library with the Zig API as well as build.zig (fn linkV8) on how to link with the built V8 static library.
 
 ## Contributing
 

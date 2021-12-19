@@ -39,10 +39,12 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+
       - name: Get build tag.
         shell: bash
         # Need single quotes or path sep becomes escapes on windows host. xargs does trimming.
         run: echo "BUILD_TAG=$(cat '${{ github.workspace }}/V8_REVISION' | xargs)" >> $GITHUB_ENV
+
       - name: Create/Update tag.
         uses: actions/github-script@v5
         with:
@@ -69,10 +71,12 @@ jobs:
                 sha: context.sha,
               });
             }
+
       - name: Install zig.
         uses: goto-bus-stop/setup-zig@v1
         with:
           version: master
+
       - name: Cache.
         uses: actions/cache@v2
         with:
@@ -81,10 +85,12 @@ jobs:
           path: |-
             sccache
           key:
-            # The cache can behave unexpectedly, so we have a new key for each build but restore from an older build.
-            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-{{ github.sha }}
+            # The cache can behave unexpectedly, so sometimes we need to set a unique key to reset everything. Usually when we change the path.
+            # c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-${{ github.sha }}
+            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
           restore-keys:
             c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
+
       - name: Install and start sccache.
         shell: pwsh
         env:
@@ -108,21 +114,27 @@ jobs:
           chmod a+x $basename/sccache
           . $basename/sccache --start-server
           echo "$(pwd)/$basename" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Get V8 Tools.
         run: zig build get-tools
+
       - name: Get V8 Source.
         run: zig build get-v8
+
       - name: Build release.
         if: env.BUILD_MODE == 'release'
         run: zig build -Drelease-safe
+
       - name: Build debug.
         if: env.BUILD_MODE == 'debug'
         run: zig build
+
       - name: Copy binary.
         continue-on-error: true
         run: cp
           v8-out/${{ env.ARCH_OS }}/${{ env.BUILD_MODE }}/ninja/obj/zig/${{ env.LIB_NAME }}.${{ env.LIB_EXT }}
           v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
+
       - name: Github Release.
         uses: softprops/action-gh-release@v0.1.14
         # Github requires tags for releases.
@@ -134,6 +146,7 @@ jobs:
           name: ${{ env.BUILD_TAG }}
           tag_name: ${{ env.BUILD_TAG }}
           files: v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
+
       - name: Stop sccache.
         if: always()
         run: |

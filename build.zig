@@ -10,6 +10,7 @@ const Pkg = std.build.Pkg;
 pub fn build(b: *Builder) !void {
     // Options.
     //const build_v8 = b.option(bool, "build_v8", "Whether to build from v8 source") orelse false;
+    const path = b.option([]const u8, "path", "Path to main file, for: build, run") orelse "";
 
     const mode = b.standardReleaseOptions();
     const target = b.standardTargetOptions(.{});
@@ -25,6 +26,12 @@ pub fn build(b: *Builder) !void {
 
     const run_test = createTest(b, target, mode);
     b.step("test", "Run tests.").dependOn(&run_test.step);
+
+    const build_exe = createBuildExeStep(b, path, target, mode);
+    b.step("exe", "Build exe with main file at -Dpath").dependOn(&build_exe.step);
+
+    const run_exe = build_exe.run();
+    b.step("run", "Run with main file at -Dpath").dependOn(&run_exe.step);
 
     b.default_step.dependOn(&v8.step);
 }
@@ -302,14 +309,10 @@ const CopyFileStep = struct {
     }
 };
 
-fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode) *std.build.LibExeObjStep {
-    const step = b.addTest("./test/test.zig");
-    step.setMainPkgPath(".");
-    step.addIncludeDir("./src");
-    step.setTarget(target);
-    step.setBuildMode(mode);
-    step.linkLibC();
-    
+fn linkV8(b: *Builder, step: *std.build.LibExeObjStep) void {
+    const mode = step.build_mode;
+    const target = step.target;
+
     const mode_str: []const u8 = if (mode == .Debug) "debug" else "release";
     const lib: []const u8 = if (builtin.os.tag == .windows) "c_v8.lib" else "libc_v8.a";
     const lib_path = std.fmt.allocPrint(b.allocator, "./v8-out/{s}/{s}/ninja/obj/zig/{s}", .{
@@ -331,6 +334,16 @@ fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode) 
         step.addLibPath("C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.29.30133/lib/x64");
         step.linkSystemLibrary("libcpmt");
     }
+}
+
+fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode) *std.build.LibExeObjStep {
+    const step = b.addTest("./test/test.zig");
+    step.setMainPkgPath(".");
+    step.addIncludeDir("./src");
+    step.setTarget(target);
+    step.setBuildMode(mode);
+    step.linkLibC();
+    linkV8(b, step);
     return step;
 }
 
@@ -520,3 +533,28 @@ pub const GetV8SourceStep = struct {
         }
     }
 };
+
+fn createBuildExeStep(b: *Builder, path: []const u8, target: std.zig.CrossTarget, mode: std.builtin.Mode) *LibExeObjStep {
+    const basename = std.fs.path.basename(path);
+    const i = std.mem.indexOf(u8, basename, ".zig") orelse basename.len;
+    const name = basename[0..i];
+
+    const step = b.addExecutable(name, path);
+    step.setBuildMode(mode);
+    step.setTarget(target);
+
+    step.linkLibC();
+    step.addIncludeDir("src");
+
+    const output_dir_rel = std.fmt.allocPrint(b.allocator, "zig-out/{s}", .{ name }) catch unreachable;
+    const output_dir = b.pathFromRoot(output_dir_rel);
+    step.setOutputDir(output_dir);
+
+    if (mode == .ReleaseSafe) {
+        step.strip = true;
+    }
+
+    linkV8(b, step);
+
+    return step;
+}
