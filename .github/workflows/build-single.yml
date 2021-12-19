@@ -47,6 +47,7 @@ jobs:
         uses: actions/github-script@v5
         with:
           script: |
+            console.log(github);
             const ref = 'tags/${{ env.BUILD_TAG }}';
             const res = await github.rest.git.listMatchingRefs({
               owner: context.repo.owner,
@@ -69,6 +70,9 @@ jobs:
                 sha: context.sha,
               });
             }
+      - name: Test Set
+        shell: bash
+        run: echo "${{ env.BUILD_TAG }}" > $GITHUB_REF
       - name: Test Github Release.
         uses: softprops/action-gh-release@59c3b4891632ff9a897f99a91d7bc557467a3a22
         # Github requires tags for releases.
