@@ -120,6 +120,8 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
             }
         }
         if (builtin.os.tag == .windows) {
+            // After creating PATH for windows so findProgram can find sccache, we need to delete it
+            // or a gn tool (build/toolchain/win/setup_toolchain.py) will complain about not finding cl.exe.
             b.env_map.remove("PATH");
         }
     }
