@@ -77,10 +77,10 @@ jobs:
           path: |-
             sccache
           key:
-            # The cache can behave unexpectedly, so sometimes we need to set a unique key to reset everything. Usually when we change the path.
-            # c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-${{ github.sha }}
-            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
+            # The cache can behave unexpectedly (usually happens when we change the path), so we just increase a simple id counter to create a new cache.
+            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-2
           restore-keys:
+            # Reuse a previous cache.
             c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
 
       - name: Install and start sccache.
