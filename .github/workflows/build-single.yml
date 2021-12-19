@@ -70,7 +70,7 @@ jobs:
               });
             }
       - name: Test Github Release.
-        uses: softprops/action-gh-release@59c3b4891632ff9a897f99a91d7bc557467a3a22
+        uses: softprops/action-gh-release@v0.1.14
         # Github requires tags for releases.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
