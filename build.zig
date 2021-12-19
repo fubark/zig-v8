@@ -464,6 +464,7 @@ pub const GetV8SourceStep = struct {
         const v8_rev = try getV8Rev(self.b);
 
         // Clone V8.
+        // TODO: Check if we have the right branch, otherwise re clone v8.
         const stat = try statPathFromRoot(self.b, "v8");
         if (stat == .NotExist) {
             _ = try self.b.execFromStep(&.{ "git", "clone", "--depth=1", "--branch", v8_rev, "https://chromium.googlesource.com/v8/v8.git", "v8" }, &self.step);
@@ -579,6 +580,8 @@ fn statPathFromRoot(b: *Builder, path_rel: []const u8) !PathStat {
     const file = std.fs.openFileAbsolute(path_abs, .{ .read = false, .write = false }) catch |err| {
         if (err == error.FileNotFound) {
             return .NotExist;
+        } else if (err == error.IsDir) {
+            return .Directory;
         } else {
             return err;
         }
