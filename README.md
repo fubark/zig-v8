@@ -10,7 +10,7 @@ V8 is the JS/WASM runtime that powers Google Chrome and Microsoft Edge.
 | ------ | -------- | -------- |
 | ✅ | Linux x64 | shell - 19 M |
 | ✅ | Windows x64 | shell.exe - TBD |
-| ✅ | macOS x64 | shell - TBD |
+| ✅ | macOS x64 | shell - 24 M |
 | Soon | macOS arm64 | TBD |
 
 \* shell.zig is a JS repl and statically linked with v8. Compiled with -Drelease-safe. The V8 dependency can be further reduced in size if you don't need all the features (eg. disable WASM runtime).

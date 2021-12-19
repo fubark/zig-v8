@@ -124,7 +124,7 @@ pub fn executeString(alloc: std.mem.Allocator, isolate: v8.Isolate, src: []const
 
     var context = isolate.getCurrentContext();
 
-    // Run in script mode.
+    // Run in strict mode.
     const final_src = std.fmt.allocPrint(alloc, "'use strict';void 0;\n{s}", .{src}) catch unreachable;
     defer alloc.free(final_src);
 
