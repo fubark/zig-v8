@@ -9,7 +9,7 @@ V8 is the JS/WASM runtime that powers Google Chrome and Microsoft Edge.
 | Status | Platform | Demo Binary (shell.zig)* |
 | ------ | -------- | -------- |
 | ✅ | Linux x64 | shell - 19 M |
-| ✅ | Windows x64 | shell.exe - TBD |
+| ✅ | Windows x64 | shell.exe - 12 M |
 | ✅ | macOS x64 | shell - 24 M |
 | Soon | macOS arm64 | TBD |
 
