@@ -107,6 +107,10 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         const cc_wrapper = try std.fmt.allocPrint(b.allocator, "cc_wrapper=\"{s}\"", .{path});
         try gn_args.append(cc_wrapper);
     } else {
+        if (builtin.os.tag == .windows) {
+            // findProgram look for "PATH" case sensitive.
+            try b.env_map.put("PATH", b.env_map.get("Path") orelse "");
+        }
         if (b.findProgram(&.{"sccache"}, &.{})) |_| {
             const cc_wrapper = try std.fmt.allocPrint(b.allocator, "cc_wrapper=\"{s}\"", .{"sccache"});
             try gn_args.append(cc_wrapper);
