@@ -43,20 +43,16 @@ jobs:
         shell: bash
         # Need single quotes or path sep becomes escapes on windows host. xargs does trimming.
         run: echo "BUILD_TAG=$(cat '${{ github.workspace }}/V8_REVISION' | xargs)" >> $GITHUB_ENV
-      - name: Testing
-        shell: bash
-        run: echo ${{ github.ref }}
       - name: Create/Update tag.
         uses: actions/github-script@v5
         with:
           script: |
-            const ref = 'refs/tags/${{ env.BUILD_TAG }}';
+            const ref = 'tags/${{ env.BUILD_TAG }}';
             const res = await github.rest.git.listMatchingRefs({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: 'tags/${{ env.BUILD_TAG }}',
             });
-            console.log(res);
             if (res.data.length > 0) {
               await github.rest.git.updateRef({
                 owner: context.repo.owner,
@@ -68,13 +64,18 @@ jobs:
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref,
+                // Only create needs full path
+                ref: 'refs/tags/${{ env.BUILD_TAG }}',
                 sha: context.sha,
               });
             }
-      - name: Testing
-        shell: bash
-        run: echo ${{ github.ref }}
+      - name: Test Github Release.
+        uses: softprops/action-gh-release@59c3b4891632ff9a897f99a91d7bc557467a3a22
+        # Github requires tags for releases.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: ${{ github.workspace }}/V8_REVISION
       - name: Install zig.
         uses: goto-bus-stop/setup-zig@v1
         with:
