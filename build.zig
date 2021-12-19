@@ -119,6 +119,9 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
                 unreachable;
             }
         }
+        if (builtin.os.tag == .windows) {
+            b.env_map.remove("PATH");
+        }
     }
 
     // var check_deps = CheckV8DepsStep.create(b);
