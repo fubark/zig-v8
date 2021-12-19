@@ -398,7 +398,11 @@ pub const GetV8SourceStep = struct {
     fn getDep(self: *Self, deps: json.Value, key: []const u8, local_path: []const u8) !void {
         const dep = try self.parseDep(deps, key);
         defer dep.deinit();
-        _ = try self.b.execFromStep(&.{ "git", "clone", dep.repo_url, local_path }, &self.step);
+
+        const stat = try statPathFromRoot(self.b, local_path);
+        if (stat == .NotExist) {
+            _ = try self.b.execFromStep(&.{ "git", "clone", dep.repo_url, local_path }, &self.step);
+        }
         _ = try self.b.execFromStep(&.{ "git", "-C", local_path, "checkout", dep.repo_rev }, &self.step);
     }
 
@@ -460,7 +464,10 @@ pub const GetV8SourceStep = struct {
         const v8_rev = try getV8Rev(self.b);
 
         // Clone V8.
-        _ = try self.b.execFromStep(&.{ "git", "clone", "--depth=1", "--branch", v8_rev, "https://chromium.googlesource.com/v8/v8.git", "v8" }, &self.step);
+        const stat = try statPathFromRoot(self.b, "v8");
+        if (stat == .NotExist) {
+            _ = try self.b.execFromStep(&.{ "git", "clone", "--depth=1", "--branch", v8_rev, "https://chromium.googlesource.com/v8/v8.git", "v8" }, &self.step);
+        }
 
         // Get DEPS in json.
         const deps_json = try self.b.execFromStep(&.{ "python", "tools/parse_deps.py", "v8/DEPS" }, &self.step);
@@ -557,4 +564,32 @@ fn createBuildExeStep(b: *Builder, path: []const u8, target: std.zig.CrossTarget
     linkV8(b, step);
 
     return step;
+}
+
+const PathStat = enum {
+    NotExist,
+    Directory,
+    File,
+    SymLink,
+    Unknown,
+};
+
+fn statPathFromRoot(b: *Builder, path_rel: []const u8) !PathStat {
+    const path_abs = b.pathFromRoot(path_rel);
+    const file = std.fs.openFileAbsolute(path_abs, .{ .read = false, .write = false }) catch |err| {
+        if (err == error.FileNotFound) {
+            return .NotExist;
+        } else {
+            return err;
+        }
+    };
+    defer file.close();
+
+    const stat = try file.stat();
+    switch (stat.kind) {
+        .SymLink => return .SymLink,
+        .Directory => return .Directory,
+        .File => return .File,
+        else => return .Unknown,
+    }
 }
