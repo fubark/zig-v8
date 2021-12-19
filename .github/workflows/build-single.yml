@@ -61,7 +61,7 @@ jobs:
               await github.rest.git.updateRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref,
+                ref: 'tags/${{ env.BUILD_TAG }}',
                 sha: context.sha,
               });
             } else {
