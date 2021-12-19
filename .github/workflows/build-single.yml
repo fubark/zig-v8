@@ -56,7 +56,8 @@ jobs:
               repo: context.repo.repo,
               ref: 'tags/${{ env.BUILD_TAG }}',
             });
-            if (res.len > 0) {
+            console.log(res);
+            if (res.length > 0) {
               await github.rest.git.updateRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
