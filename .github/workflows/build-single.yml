@@ -69,15 +69,6 @@ jobs:
                 sha: context.sha,
               });
             }
-      - name: Test Github Release.
-        uses: softprops/action-gh-release@v0.1.14
-        # Github requires tags for releases.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          name: ${{ env.BUILD_TAG }}
-          tag_name: ${{ env.BUILD_TAG }}
-          files: ${{ github.workspace }}/README.md
       - name: Install zig.
         uses: goto-bus-stop/setup-zig@v1
         with:
@@ -133,12 +124,15 @@ jobs:
           v8-out/${{ env.ARCH_OS }}/${{ env.BUILD_MODE }}/ninja/obj/zig/${{ env.LIB_NAME }}.${{ env.LIB_EXT }}
           v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
       - name: Github Release.
-        uses: softprops/action-gh-release@59c3b4891632ff9a897f99a91d7bc557467a3a22
+        uses: softprops/action-gh-release@v0.1.14
         # Github requires tags for releases.
-        if: startsWith(github.ref, 'refs/tags/')
+        #if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          body: Release
+          name: ${{ env.BUILD_TAG }}
+          tag_name: ${{ env.BUILD_TAG }}
           files: v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
       - name: Stop sccache.
         if: always()
