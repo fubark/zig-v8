@@ -2,6 +2,8 @@
 
 Builds V8 from official source and provides C bindings and a Zig API. This would be used for embedding the V8 runtime into your Zig or C ABI compatible projects.
 
+V8 is the JS/WASM runtime that powers Google Chrome and Microsoft Edge.
+
 ## Project Status
 
 | Status | Platform | Demo Binary (shell.zig)* |
