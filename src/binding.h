@@ -5,6 +5,7 @@ typedef uintptr_t usize;
 typedef struct CreateParams CreateParams;
 typedef struct Isolate Isolate;
 typedef struct String String;
+typedef struct Boolean Boolean;
 typedef struct Function Function;
 typedef struct FunctionTemplate FunctionTemplate;
 typedef struct Object Object;
@@ -50,6 +51,10 @@ bool v8__Platform__PumpMessageLoop(Platform* platform, Isolate* isolate, bool wa
 // Root
 typedef struct Primitive Primitive;
 const Primitive* v8__Undefined(
+    Isolate* isolate);
+const Boolean* v8__True(
+    Isolate* isolate);
+const Boolean* v8__False(
     Isolate* isolate);
 
 // V8
@@ -153,6 +158,11 @@ void v8__Context__Exit(const Context* context);
 Isolate* v8__Context__GetIsolate(const Context* context);
 const Object* v8__Context__Global(const Context* self);
 
+// Boolean
+const Boolean* v8__Boolean__New(
+    Isolate* isolate,
+    bool value);
+
 // String
 typedef enum NewStringType {
     /**
@@ -183,6 +193,9 @@ int v8__String__Utf8Length(const String* str, Isolate* isolate);
 
 // Value
 String* v8__Value__ToString(const Value* val, const Context* ctx);
+bool v8__Value__BooleanValue(
+    const Value* self,
+    Isolate* isolate);
 void v8__Value__Uint32Value(
     const Value* self,
     const Context* ctx,

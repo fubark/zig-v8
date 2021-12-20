@@ -83,6 +83,16 @@ const v8::Primitive* v8__Undefined(
     return local_to_ptr(v8::Undefined(isolate));
 }
 
+const v8::Boolean* v8__True(
+        v8::Isolate* isolate) {
+    return local_to_ptr(v8::True(isolate));
+}
+
+const v8::Boolean* v8__False(
+        v8::Isolate* isolate) {
+    return local_to_ptr(v8::False(isolate));
+}
+
 // V8
 
 const char* v8__V8__GetVersion() { return v8::V8::GetVersion(); }
@@ -222,6 +232,14 @@ int v8__String__Utf8Length(const v8::String& self, v8::Isolate* isolate) {
     return self.Utf8Length(isolate);
 }
 
+// Boolean
+
+const v8::Boolean* v8__Boolean__New(
+        v8::Isolate* isolate,
+        bool value) {
+    return local_to_ptr(v8::Boolean::New(isolate, value));
+}
+
 // Number
 
 const v8::Number* v8__Number__New(
@@ -249,6 +267,12 @@ const v8::Integer* v8__Integer__NewFromUnsigned(
 const v8::String* v8__Value__ToString(
         const v8::Value& val, const v8::Context& ctx) {
     return maybe_local_to_ptr(val.ToString(ptr_to_local(&ctx)));
+}
+
+bool v8__Value__BooleanValue(
+        const v8::Value& self,
+        v8::Isolate* isolate) {
+    return self.BooleanValue(isolate);
 }
 
 void v8__Value__Uint32Value(
