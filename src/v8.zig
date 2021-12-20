@@ -697,6 +697,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Value => val.handle,
         String => val.handle,
         Integer => val.handle,
+        Primitive => val.handle,
         Number => val.handle,
         Function => val.handle,
         Persistent => val.handle,
@@ -818,6 +819,18 @@ pub const ScriptOrigin = struct {
     }
 };
 
+pub const Boolean = struct {
+    const Self = @This();
+
+    handle: *const c.Boolean,
+
+    pub fn init(isolate: Isolate, val: bool) Self {
+        return .{
+            .handle = c.v8__Boolean__New(isolate.handle, val).?,
+        };
+    }
+};
+
 pub const String = struct {
     const Self = @This();
 
@@ -839,6 +852,12 @@ pub const String = struct {
         var nchars: c_int = 0;
         // TODO: Return num chars
         return @intCast(u32, c.v8__String__WriteUtf8(self.handle, isolate.handle, buf.ptr, @intCast(c_int, buf.len), &nchars, options));
+    }
+
+    pub fn toValue(self: Self) Value {
+        return .{
+            .handle = self.handle,
+        };
     }
 };
 
@@ -875,6 +894,10 @@ pub const Value = struct {
         return .{
             .handle = c.v8__Value__ToString(self.handle, ctx.handle).?,
         };
+    }
+
+    pub fn toBool(self: Self, isolate: Isolate) bool {
+        return c.v8__Value__BooleanValue(self.handle, isolate.handle);
     }
 
     pub fn toU32(self: Self, ctx: Context) u32 {
@@ -963,10 +986,22 @@ pub const Primitive = struct {
     const Self = @This();
 
     handle: *const c.Primitive,
-
-    pub fn initUndefined(isolate: Isolate) Self {
-        return .{
-            .handle = c.v8__Undefined(isolate.handle).?,
-        };
-    }
 };
+
+pub fn initUndefined(isolate: Isolate) Primitive {
+    return .{
+        .handle = c.v8__Undefined(isolate.handle).?,
+    };
+}
+
+pub fn initTrue(isolate: Isolate) Boolean {
+    return .{
+        .handle = c.v8__True(isolate.handle).?,
+    };
+}
+
+pub fn initFalse(isolate: Isolate) Boolean {
+    return .{
+        .handle = c.v8__False(isolate.handle).?,
+    };
+}
