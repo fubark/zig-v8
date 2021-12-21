@@ -416,41 +416,9 @@ pub const GetV8SourceStep = struct {
                     try args.append(it.String);
                 }
                 const cwd = self.b.pathFromRoot("v8");
-                _ = try self.cwdExec(cwd, args.items);
+                _ = try self.b.spawnChildEnvMap(cwd, self.b.env_map, args.items);
                 break;
             }
-        }
-    }
-
-    fn cwdExec(self: Self, cwd: []const u8, argv: []const []const u8) ![]u8 {
-        const max_output_size = 400 * 1024;
-        const child = try std.ChildProcess.init(argv, self.b.allocator);
-        defer child.deinit();
-
-        child.stdin_behavior = .Ignore;
-        child.stdout_behavior = .Pipe;
-        child.stderr_behavior = .Inherit;
-        child.cwd = cwd;
-        var env_map: std.BufMap = try std.process.getEnvMap(self.b.allocator);
-        defer env_map.deinit();
-        child.env_map = &env_map;
-
-        try child.spawn();
-
-        const stdout = try child.stdout.?.reader().readAllAlloc(self.b.allocator, max_output_size);
-        errdefer self.b.allocator.free(stdout);
-
-        const term = try child.wait();
-        switch (term) {
-            .Exited => |code| {
-                if (code != 0) {
-                    return error.ExitCodeFailure;
-                }
-                return stdout;
-            },
-            .Signal, .Stopped, .Unknown => |_| {
-                return error.ProcessTerminated;
-            },
         }
     }
 
