@@ -100,7 +100,6 @@ pub fn destroyArrayBufferAllocator(alloc: *c.ArrayBufferAllocator) void {
 }
 
 pub const Exception = struct {
-
     pub fn initError(msg: String) Value {
         return .{
             .handle = c.v8__Exception__Error(msg.handle).?,
@@ -161,7 +160,6 @@ pub const Isolate = struct {
             .handle = c.v8__Isolate__ThrowException(self.handle, getValueHandle(value)).?,
         };
     }
-
 };
 
 pub const HandleScope = struct {
@@ -207,11 +205,7 @@ pub const Context = struct {
     /// and only object identify will remain.
     pub fn init(isolate: Isolate, global_tmpl: ?ObjectTemplate, global_obj: ?*c.Value) Self {
         return .{
-            .handle = c.v8__Context__New(
-                isolate.handle,
-                if (global_tmpl != null) global_tmpl.?.handle else null,
-                global_obj
-            ).?,
+            .handle = c.v8__Context__New(isolate.handle, if (global_tmpl != null) global_tmpl.?.handle else null, global_obj).?,
         };
     }
 
@@ -293,7 +287,7 @@ pub const WeakCallbackInfo = struct {
         };
     }
 
-    pub fn getParameter(self: Self) *const c_void {
+    pub fn getParameter(self: Self) *const anyopaque {
         return c.v8__WeakCallbackInfo__GetParameter(self.handle).?;
     }
 };
@@ -425,7 +419,7 @@ pub const Function = struct {
     /// receiver_val is "this" in the function context. This is equivalent to calling fn.apply(receiver, args) in JS.
     /// Returns null if there was an error.
     pub fn call(self: Self, ctx: Context, receiver_val: anytype, args: []const Value) ?Value {
-        const c_args = @ptrCast(?[*]const ?*c_void, args.ptr);
+        const c_args = @ptrCast(?[*]const ?*anyopaque, args.ptr);
         if (c.v8__Function__Call(self.handle, ctx.handle, getValueHandle(receiver_val), @intCast(c_int, args.len), c_args)) |ret| {
             return Value{
                 .handle = ret,
@@ -435,7 +429,7 @@ pub const Function = struct {
 
     // Equavalent to js "new".
     pub fn initInstance(self: Self, ctx: Context, args: []const Value) ?Object {
-        const c_args = @ptrCast(?[*]const ?*c_void, args.ptr);
+        const c_args = @ptrCast(?[*]const ?*anyopaque, args.ptr);
         if (c.v8__Function__NewInstance(self.handle, ctx.handle, @intCast(c_int, args.len), c_args)) |ret| {
             return Object{
                 .handle = ret,
@@ -466,13 +460,13 @@ pub const Function = struct {
 pub const Persistent = struct {
     const Self = @This();
 
-    // The Persistent handle is just like other value handles for easy casting. 
+    // The Persistent handle is just like other value handles for easy casting.
     // But when creating and operating on it, an indirect pointer is used to represent a c.Persistent struct (v8::Persistent<v8::Value> in C++).
-    handle: *const c_void,
+    handle: *const anyopaque,
 
     /// A new value is created that references the original value.
     pub fn init(isolate: Isolate, value: anytype) Self {
-        var handle: *c_void = undefined;
+        var handle: *anyopaque = undefined;
         c.v8__Persistent__New(isolate.handle, getValueHandle(value), @ptrCast(*c.Persistent, &handle));
         return .{
             .handle = handle,
@@ -507,11 +501,8 @@ pub const Persistent = struct {
         c.v8__Persistent__SetWeak(@ptrCast(*c.Persistent, &self.handle));
     }
 
-    pub fn setWeakFinalizer(self: *Self, finalizer_ctx: *c_void, cb: c.WeakCallback, cb_type: c.WeakCallbackType) void {
-        c.v8__Persistent__SetWeakFinalizer(
-            @ptrCast(*c.Persistent, &self.handle),
-            finalizer_ctx, cb, cb_type
-        );
+    pub fn setWeakFinalizer(self: *Self, finalizer_ctx: *anyopaque, cb: c.WeakCallback, cb_type: c.WeakCallbackType) void {
+        c.v8__Persistent__SetWeakFinalizer(@ptrCast(*c.Persistent, &self.handle), finalizer_ctx, cb, cb_type);
     }
 };
 

@@ -16,6 +16,8 @@ Static libs are built and released with [Github Actions](https://github.com/fuba
 \* shell.zig is a JS repl and statically linked with v8. Compiled with -Drelease-safe. The V8 dependency can be further reduced in size if you don't need all the features (eg. disable WASM runtime).
 
 ## Build
+You'll need the Zig compiler (0.9.0). You can get that [here](https://ziglang.org/download/).
+
 By default UseGclient=false in build.zig. This will pull the minimum sources and deps needed to build v8 and reduce build times.
 
 If you want to include everything, set UseGclient=true. Build times can be quite long using gclient but afterwards rerunning "zig build" should be incremental. You can also use sccache for better incremental build times.
@@ -36,7 +38,7 @@ zig build get-v8
 # v8-out/{target}/{debug/release}/ninja/obj/zig/libc_v8.a
 # For release builds: zig build -Drelease-safe
 # On windows, use msvc: zig build -Drelease-safe -Dtarget=x86_64-windows-msvc
-zig build
+zig build -Drelease-safe
 ```
 ## Demo
 ```sh

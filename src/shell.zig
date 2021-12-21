@@ -124,11 +124,7 @@ pub fn executeString(alloc: std.mem.Allocator, isolate: v8.Isolate, src: []const
 
     var context = isolate.getCurrentContext();
 
-    // Run in strict mode.
-    const final_src = std.fmt.allocPrint(alloc, "'use strict';void 0;\n{s}", .{src}) catch unreachable;
-    defer alloc.free(final_src);
-
-    const js_src = v8.String.initUtf8(isolate, final_src);
+    const js_src = v8.String.initUtf8(isolate, src);
 
     if (v8.Script.compile(context, js_src, origin)) |script| {
         if (script.run(context)) |script_res| {
