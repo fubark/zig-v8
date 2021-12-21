@@ -5,7 +5,7 @@ Builds V8 from official source and provides C bindings and a Zig API. This would
 V8 is the JS/WASM runtime that powers Google Chrome and Microsoft Edge.
 
 ## Project Status
-Static libs are built and released with [Github Actions](https://github.com/fubark/zig-v8/actions). CI will be added soon and triggered every week.
+Static libs are built and released with [Github Actions](https://github.com/fubark/zig-v8/actions).
 | Status | Platform | Demo Binary ([shell.zig](https://github.com/fubark/zig-v8/blob/master/src/shell.zig))* |
 | ------ | -------- | -------- |
 | ✅ | Linux x64 | shell - 19 M |
@@ -36,7 +36,6 @@ zig build get-v8
 
 # Build, resulting static library should be at:
 # v8-out/{target}/{debug/release}/ninja/obj/zig/libc_v8.a
-# For release builds: zig build -Drelease-safe
 # On windows, use msvc: zig build -Drelease-safe -Dtarget=x86_64-windows-msvc
 zig build -Drelease-safe
 ```
