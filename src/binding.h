@@ -213,6 +213,24 @@ void v8__Value__InstanceOf(
     const Object* object,
     MaybeBool* out);
 
+// Promise
+typedef struct Promise Promise;
+typedef struct PromiseResolver PromiseResolver;
+const PromiseResolver* v8__Promise__Resolver__New(
+    const Context* ctx);
+const Promise* v8__Promise__Resolver__GetPromise(
+    const PromiseResolver* self);
+void v8__Promise__Resolver__Resolve(
+    const PromiseResolver* self,
+    const Context* ctx,
+    const Value* value,
+    MaybeBool* out);
+void v8__Promise__Resolver__Reject(
+    const PromiseResolver* self,
+    const Context* ctx,
+    const Value* value,
+    MaybeBool* out);
+
 // Array
 typedef struct Array Array;
 uint32_t v8__Array__Length(const Array* self);

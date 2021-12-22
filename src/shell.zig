@@ -67,7 +67,7 @@ fn repl() void {
             }
 
             while (platform.pumpMessageLoop(isolate, false)) {
-                unreachable;
+                continue;
             }
         } else {
             printFmt("\n", .{});
@@ -78,7 +78,7 @@ fn repl() void {
 
 fn getInput(input_buf: *std.ArrayList(u8)) ?[]const u8 {
     input_buf.clearRetainingCapacity();
-    std.io.getStdIn().reader().readUntilDelimiterArrayList(input_buf, '\n', 1000 * 1000 * 1000) catch |err| {
+    std.io.getStdIn().reader().readUntilDelimiterArrayList(input_buf, '\n', 1e9) catch |err| {
         if (err == error.EndOfStream) {
             return null;
         } else {

@@ -996,3 +996,43 @@ pub fn initFalse(isolate: Isolate) Boolean {
         .handle = c.v8__False(isolate.handle).?,
     };
 }
+
+pub const Promise = struct {
+    const Self = @This();
+
+    handle: *const c.Promise,
+};
+
+pub const PromiseResolver = struct {
+    const Self = @This();
+
+    handle: *const c.PromiseResolver,
+
+    pub fn init(ctx: Context) Self {
+        return .{
+            .handle = c.v8__Promise__Resolver__New(ctx.handle).?,
+        };
+    }
+
+    pub fn getPromise(self: Self) Promise {
+        return .{
+            .handle = c.v8__Promise__Resolver__GetPromise(self.handle).?,
+        };
+    }
+
+    pub fn resolve(self: Self, ctx: Context, val: Value) ?bool {
+        var out: c.MaybeBool = undefined;
+        c.v8__Promise__Resolver__Resolve(self.handle, ctx.handle, val.handle, &out);
+        if (out.has_value == 1) {
+            return out.value == 1;
+        } else return null;
+    }
+
+    pub fn reject(self: Self, ctx: Context, val: Value) ?bool {
+        var out: c.MaybeBool = undefined;
+        c.v8__Promise__Resolver__Resolve(self.handle, ctx.handle, val.handle, &out);
+        if (out.has_value == 1) {
+            return out.value == 1;
+        } else return null;
+    }
+};
