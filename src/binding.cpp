@@ -262,6 +262,41 @@ const v8::Integer* v8__Integer__NewFromUnsigned(
     return *v8::Integer::NewFromUnsigned(isolate, value);
 }
 
+// Promise
+
+const v8::Promise::Resolver* v8__Promise__Resolver__New(
+        const v8::Context& ctx) {
+    return maybe_local_to_ptr(
+        v8::Promise::Resolver::New(ptr_to_local(&ctx))
+    );
+}
+
+const v8::Promise* v8__Promise__Resolver__GetPromise(
+        const v8::Promise::Resolver& self) {
+    return local_to_ptr(ptr_to_local(&self)->GetPromise());
+}
+
+void v8__Promise__Resolver__Resolve(
+        const v8::Promise::Resolver& self,
+        const v8::Context& ctx,
+        const v8::Value& value,
+        v8::Maybe<bool>* out) {
+    *out = ptr_to_local(&self)->Resolve(
+        ptr_to_local(&ctx), ptr_to_local(&value)
+    );
+}
+
+void v8__Promise__Resolver__Reject(
+        const v8::Promise::Resolver& self,
+        const v8::Context& ctx,
+        const v8::Value& value,
+        v8::Maybe<bool>* out) {
+    *out = ptr_to_local(&self)->Reject(
+        ptr_to_local(&ctx),
+        ptr_to_local(&value)
+    );
+}
+
 // Value
 
 const v8::String* v8__Value__ToString(
