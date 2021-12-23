@@ -56,6 +56,7 @@ template("zig_toolchain") {
   gcc_toolchain(target_name) {
     cc = "zig cc"
     cxx = "zig c++"
+    # ld commands in v8 use cxx with -fuse-ld
     ld = cxx
     #ar = "${prefix}/llvm-ar"
     ar = "zig ar"
