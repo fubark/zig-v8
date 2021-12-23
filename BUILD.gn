@@ -1,6 +1,8 @@
 # Copyright 2018-2019 the Deno authors. All rights reserved. MIT license.
 # Based on https://github.com/denoland/rusty_v8/blob/main/BUILD.gn
 import("//build/config/host_byteorder.gni")
+import("//build/toolchain/gcc_toolchain.gni")
+import("//build/config/c++/c++.gni")
 
 static_library("c_v8") {
   complete_static_lib = true
@@ -46,5 +48,57 @@ config("c_v8_config") {
 
   if (is_debug && is_clang && !is_win) {
     cflags += [ "-glldb" ]
+  }
+}
+
+# Based on template("clang_toolchain") in build/toolchain/gcc_toolchain.gni
+template("zig_toolchain") {
+  gcc_toolchain(target_name) {
+    cc = "zig cc"
+    cxx = "zig c++"
+    ld = cxx
+    #ar = "${prefix}/llvm-ar"
+    ar = "zig ar"
+
+    prefix = rebase_path("$clang_base_path/bin", root_build_dir)
+    readelf = "${prefix}/llvm-readelf"
+    # Is this even used?
+    nm = "${prefix}/llvm-nm"
+
+    forward_variables_from(invoker,
+      [
+        "strip",
+        "default_shlib_subdir",
+        "dwp",
+        "enable_linker_map",
+        "loadable_module_extension",
+        "use_unstripped_as_runtime_outputs",
+        "extra_cppflags",
+        "extra_cxxflags",
+        "extra_ldflags",
+      ])
+
+    toolchain_args = {
+      if (defined(invoker.toolchain_args)) {
+        forward_variables_from(invoker.toolchain_args, "*")
+      }
+      is_clang = true
+    }
+  }
+}
+
+# Based on //build/toolchain/linux:clang_x64
+zig_toolchain("x86_64-linux") {
+  # Output linker map files for binary size analysis.
+  enable_linker_map = true
+
+  extra_cppflags = zig_cppflags
+  extra_cxxflags = zig_cxxflags
+  extra_ldflags = zig_ldflags
+
+  toolchain_args = {
+    # current means target here
+    current_cpu = "x64"
+    current_os = "linux"
   }
 }

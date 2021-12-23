@@ -1,0 +1,77 @@
+diff --git a/config/BUILDCONFIG.gn b/config/BUILDCONFIG.gn
+index fcc7e1283..ddc776c2c 100644
+--- a/config/BUILDCONFIG.gn
++++ b/config/BUILDCONFIG.gn
+@@ -153,6 +153,14 @@ declare_args() {
+   # DON'T ADD MORE FLAGS HERE. Read the comment above.
+ }
+ 
++declare_args() {
++  use_zig_tc = false
++  cxx_use_ld = "ldd"
++  zig_cppflags = ""
++  zig_cxxflags = ""
++  zig_ldflags = ""
++}
++
+ declare_args() {
+   # Debug build. Enabling official builds automatically sets is_debug to false.
+   is_debug = !is_official_build
+diff --git a/config/compiler/BUILD.gn b/config/compiler/BUILD.gn
+index e45fa2c80..c2d268471 100644
+--- a/config/compiler/BUILD.gn
++++ b/config/compiler/BUILD.gn
+@@ -298,6 +298,11 @@ config("compiler") {
+     ":compiler_deterministic",
+   ]
+ 
++  if (use_zig_tc) {
++    # We'll provide the target flags from build.zig.
++    configs -= [ ":compiler_cpu_abi" ]
++  }
++
+   # Here we enable -fno-delete-null-pointer-checks, which makes various nullptr
+   # operations (e.g. dereferencing) into defined behavior. This avoids deletion
+   # of some security-critical code: see https://crbug.com/1139129.
+@@ -350,7 +355,7 @@ config("compiler") {
+     }
+ 
+     if (use_lld) {
+-      ldflags += [ "-fuse-ld=lld" ]
++      ldflags += [ "-fuse-ld=${cxx_use_ld}" ]
+       if (lld_path != "") {
+         ldflags += [ "-B$lld_path" ]
+       }
+diff --git a/config/linux/BUILD.gn b/config/linux/BUILD.gn
+index 2137ed81d..4014edee2 100644
+--- a/config/linux/BUILD.gn
++++ b/config/linux/BUILD.gn
+@@ -43,7 +43,10 @@ config("runtime_library") {
+   if ((!(is_chromeos_ash || is_chromeos_lacros) ||
+        default_toolchain != "//build/toolchain/cros:target") &&
+       (!use_custom_libcxx || current_cpu == "mipsel")) {
+-    libs = [ "atomic" ]
++    if (!use_zig_tc) {
++      # -latomic won't be found when using zig tc, it's already compiled from zig libcxx source
++      libs = [ "atomic" ]
++    }
+   }
+ }
+ 
+diff --git a/toolchain/gcc_toolchain.gni b/toolchain/gcc_toolchain.gni
+index 25d9010ea..89bbe641b 100644
+--- a/toolchain/gcc_toolchain.gni
++++ b/toolchain/gcc_toolchain.gni
+@@ -389,7 +389,11 @@ template("gcc_toolchain") {
+       } else {
+         rspfile = "{{output}}.rsp"
+         rspfile_content = "{{inputs}}"
+-        command = "\"$ar\" {{arflags}} -r -c -s -D {{output}} @\"$rspfile\""
++        if (use_zig_tc) {
++          command = "$ar {{arflags}} -r -c -s -D {{output}} @\"$rspfile\""
++        } else {
++          command = "\"$ar\" {{arflags}} -r -c -s -D {{output}} @\"$rspfile\""
++        }
+       }
+ 
+       # Remove the output file first so that ar doesn't try to modify the
