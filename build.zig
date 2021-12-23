@@ -83,6 +83,8 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         try gn_args.append("target_cpu=\"x64\"");
     }
 
+    var zig_cppflags = std.ArrayList([]const u8).init(b.allocator);
+
     if (mode == .Debug) {
         try gn_args.append("is_debug=true");
         // full debug info (symbol_level=2).
@@ -93,6 +95,19 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
     } else {
         try gn_args.append("is_debug=false");
         try gn_args.append("symbol_level=0");
+
+        // is_official_build is meant to ship chrome.
+        // It might be interesting to see how far we can get with it (previously saw illegal instruction in Zone::NewExpand during mksnapshot_default since stacktraces were removed)
+        // but a better approach for now is to set to false and slowly enable optimizations. eg. We probably still want to unwind stack traces.
+        try gn_args.append("is_official_build=false");
+        // is_official_build will do pgo optimization by default for chrome specific builds that require gclient to fetch profile data.
+        // https://groups.google.com/a/chromium.org/g/chromium-dev/c/-0t4s0RlmOI
+        // Disable that with this:
+        //try gn_args.append("chrome_pgo_phase=0");
+        //if (use_zig_tc) {
+            // is_official_build will enable cfi but zig does not come with the default cfi_ignorelist. 
+            //try zig_cppflags.append("-fno-sanitize-ignorelist");
+        //}
     }
 
     if (MinimalV8) {
@@ -119,9 +134,11 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
             // custom_toolchain is how we can set zig as the cc/cxx compiler and linker.
             try gn_args.append("custom_toolchain=\"//zig:x86_64-linux\"");
             // Should add target flags that matches: //build/config/compiler:compiler_cpu_abi
-            try gn_args.append("zig_cppflags=\"--target=x86_64-linux-gnu -m64 -msse3\"");
+            try zig_cppflags.append("--target=x86_64-linux-gnu");
+            try zig_cppflags.append("-m64");
+            try zig_cppflags.append("-msse3");
 
-            // Just warn for this when using a newer clang.
+            // Just warn for this for now.
             // https://bugs.chromium.org/p/chromium/issues/detail?id=1016945
             try gn_args.append("zig_cxxflags=\"-Wno-error=builtin-assume-aligned-alignment\"");
             try gn_args.append("zig_ldflags=\"-m64\"");
@@ -129,6 +146,9 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
         try gn_args.append("use_zig_tc=true");
         try gn_args.append("cxx_use_ld=\"zig ld.lld\"");
+        const zig_cppflags_str = try std.mem.join(b.allocator, " ", zig_cppflags.items);
+        const zig_cppflags_arg = try std.fmt.allocPrint(b.allocator, "zig_cppflags=\"{s}\"", .{zig_cppflags_str});
+        try gn_args.append(zig_cppflags_arg);
     } else {
         if (builtin.os.tag != .windows) {
             try gn_args.append("cxx_use_ld=\"lld\"");
