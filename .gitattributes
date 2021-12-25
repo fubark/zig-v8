@@ -1,3 +1,4 @@
 *.zig text eol=lf
 *.md text eol=lf
+*.patch text eol=lf
 V8_REVISION text eol=lf
