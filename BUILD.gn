@@ -6,6 +6,7 @@ import("//build/config/c++/c++.gni")
 
 static_library("c_v8") {
   complete_static_lib = true
+
   sources = [ "../../src/binding.cpp" ]
   deps = [
     "//build/config:shared_library_deps",
@@ -66,6 +67,13 @@ template("zig_toolchain") {
     # Is this even used?
     nm = "${prefix}/llvm-nm"
 
+    if (current_cpu == "x64" && current_os == "linux") {
+      # From //build/toolchain/linux:clang_x64
+
+      # Output linker map files for binary size analysis.
+      enable_linker_map = true
+    }
+
     forward_variables_from(invoker,
       [
         "strip",
@@ -77,6 +85,7 @@ template("zig_toolchain") {
         "extra_cppflags",
         "extra_cxxflags",
         "extra_ldflags",
+        "extra_asmflags",
       ])
 
     toolchain_args = {
@@ -88,18 +97,28 @@ template("zig_toolchain") {
   }
 }
 
-# Based on //build/toolchain/linux:clang_x64
-zig_toolchain("x86_64-linux") {
-  # Output linker map files for binary size analysis.
-  enable_linker_map = true
-
+# Used to compile the v8 library.
+zig_toolchain("main_zig_toolchain") {
   extra_cppflags = zig_cppflags
   extra_cxxflags = zig_cxxflags
   extra_ldflags = zig_ldflags
-
+  extra_asmflags = zig_asmflags
   toolchain_args = {
-    # current means target here
-    current_cpu = "x64"
-    current_os = "linux"
+    current_cpu = target_cpu
+    current_os = target_os
+  }
+}
+
+# Used to compile v8 snapshots/generators to run locally.
+# v8_current_cpu indicates that we are still targeting a different arch but must compile tools to run on host machine.
+# See gni/snapshot_toolchain.gni
+zig_toolchain("v8_zig_toolchain") {
+  extra_cppflags = v8_zig_cppflags
+  extra_cxxflags = v8_zig_cxxflags
+  extra_ldflags = v8_zig_ldflags
+  toolchain_args = {
+    current_os = host_os
+    current_cpu = host_cpu
+    v8_current_cpu = target_cpu
   }
 }
