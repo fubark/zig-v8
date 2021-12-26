@@ -17,22 +17,35 @@ on:
           - x86_64-linux
           - x86_64-macos
           - x86_64-windows-msvc
+          - aarch64-macos-gnu
       mode:
         type: choice
         description: Mode
         options:
           - release
+      toolchain:
+        type: choice
+        description: Toolchain
+        options:
+          - v8
+          - zig
 
 jobs:
   build:
     name: host=${{ github.event.inputs.host }} target=${{ github.event.inputs.target }} mode=${{ github.event.inputs.mode }} 
     runs-on: ${{ github.event.inputs.host }}
     env:
-      ARCH_OS: ${{ startsWith(github.event.inputs.target, 'x86_64-windows') && 'x86_64-windows' || github.event.inputs.target }}
+      ARCH_OS: ${{ fromJson('{
+        'x86_64-windows-msvc': 'x86_64-windows',
+        'x86_64-linux': 'x86_64-linux',
+        'x86_64-macos': 'x86_64-macos',
+        'aarch64-macos-gnu': 'aarch64-macos',
+      }')[github.event.inputs.target] }}
       LIB_NAME: ${{ contains(github.event.inputs.target, 'windows') && 'c_v8' || 'libc_v8' }}
       LIB_EXT: ${{ contains(github.event.inputs.target, 'windows') && 'lib' || 'a' }}
       BUILD_TARGET: ${{ github.event.inputs.target }}
       BUILD_MODE: ${{ github.event.inputs.mode }}
+      BUILD_TOOLCHAIN: ${{ github.event.inputs.toolchain }}
     steps:
       - name: Clone repo.
         uses: actions/checkout@v2
@@ -78,6 +91,18 @@ jobs:
           version: 0.9.0
 
       - name: Cache.
+        if: env.BUILD_TOOLCHAIN == 'zig'
+        uses: actions/cache@v2
+        with:
+          path: |-
+            ~/.cache/zig
+          key:
+            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-zig
+          restore-keys:
+            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-zig
+
+      - name: Cache.
+        if: env.BUILD_TOOLCHAIN == 'v8'
         uses: actions/cache@v2
         with:
           # Restore sccache so subsequent runs can reuse the cache.
@@ -92,6 +117,7 @@ jobs:
             c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
 
       - name: Install and start sccache.
+        if: env.BUILD_TOOLCHAIN == 'v8'
         shell: pwsh
         env:
           SCCACHE_DIR: ${{ github.workspace }}/sccache
@@ -121,9 +147,13 @@ jobs:
       - name: Get V8 Source.
         run: zig build get-v8
 
+      - name: Get Cross.
+        if: env.BUILD_TOOLCHAIN == 'zig'
+        run: zig build get-cross
+
       - name: Build release.
         if: env.BUILD_MODE == 'release'
-        run: zig build -Drelease-safe
+        run: zig build -Drelease-safe ${{ BUILD_TOOLCHAIN == 'zig' && format('-Dzig-toolchain -Dtarget={0}', env.BUILD_TARGET) }}
 
       - name: Build debug.
         if: env.BUILD_MODE == 'debug'
@@ -148,7 +178,7 @@ jobs:
           files: v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
 
       - name: Stop sccache.
-        if: always()
+        if: env.BUILD_TOOLCHAIN == 'v8'
         run: |
           sccache --show-stats
           sccache --stop-server
