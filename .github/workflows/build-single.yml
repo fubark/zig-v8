@@ -35,12 +35,13 @@ jobs:
     name: host=${{ github.event.inputs.host }} target=${{ github.event.inputs.target }} mode=${{ github.event.inputs.mode }} 
     runs-on: ${{ github.event.inputs.host }}
     env:
-      ARCH_OS: ${{ fromJson('{
-        'x86_64-windows-msvc': 'x86_64-windows',
-        'x86_64-linux': 'x86_64-linux',
-        'x86_64-macos': 'x86_64-macos',
-        'aarch64-macos-gnu': 'aarch64-macos',
-      }')[github.event.inputs.target] }}
+      ARCH_OS: >
+        ${{ fromJson('{
+          "x86_64-windows-msvc": "x86_64-windows",
+          "x86_64-linux": "x86_64-linux",
+          "x86_64-macos": "x86_64-macos",
+          "aarch64-macos-gnu": "aarch64-macos",
+        }')[github.event.inputs.target] }}
       LIB_NAME: ${{ contains(github.event.inputs.target, 'windows') && 'c_v8' || 'libc_v8' }}
       LIB_EXT: ${{ contains(github.event.inputs.target, 'windows') && 'lib' || 'a' }}
       BUILD_TARGET: ${{ github.event.inputs.target }}
@@ -153,7 +154,7 @@ jobs:
 
       - name: Build release.
         if: env.BUILD_MODE == 'release'
-        run: zig build -Drelease-safe ${{ BUILD_TOOLCHAIN == 'zig' && format('-Dzig-toolchain -Dtarget={0}', env.BUILD_TARGET) }}
+        run: zig build -Drelease-safe ${{ env.BUILD_TOOLCHAIN == 'zig' && format('-Dzig-toolchain -Dtarget={0}', env.BUILD_TARGET) }}
 
       - name: Build debug.
         if: env.BUILD_MODE == 'debug'
