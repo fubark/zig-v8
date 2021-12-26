@@ -23,6 +23,12 @@ Static libs are built and released with [Github Actions](https://github.com/fuba
 
 \* Time is measured on standard Github instances.
 
+## System Requirements
+
+- Python 3
+- XCode (macOS)
+  - Run `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` to resolve this error: `xcode-select: error: tool 'xcodebuild' requires Xcode, but active developer directory '/Library/Developer/CommandLineTools' is a command line tools instance`
+
 ## Build
 You'll need the Zig compiler (0.9.0). You can get that [here](https://ziglang.org/download/).
 
