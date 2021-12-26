@@ -11,7 +11,7 @@ Static libs are built and released with [Github Actions](https://github.com/fuba
 | ✅ | | Linux x64 | shell - 19 M |
 | ✅ | | Windows x64 | shell.exe - 12 M |
 | ✅ | | macOS x64 | shell - 24 M |
-| | ✅ from x64-linux | macOS arm64 | shell - 21 M |
+| ✅ | ✅ from x64-linux | macOS arm64 | shell - 21 M |
 
 \* shell.zig is a JS repl and statically linked with v8. Compiled with -Drelease-safe. The V8 dependency can be further reduced in size if you don't need all the features (eg. disable WASM runtime).
 
