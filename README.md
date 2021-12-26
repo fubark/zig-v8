@@ -11,7 +11,7 @@ Static libs are built and released with [Github Actions](https://github.com/fuba
 | ✅ | | Linux x64 | shell - 19 M |
 | ✅ | | Windows x64 | shell.exe - 12 M |
 | ✅ | | macOS x64 | shell - 24 M |
-| | ✅ from x64-linux | macOS arm64 | shell - 21 M |
+| ✅ | ✅ from x64-linux | macOS arm64 | shell - 21 M |
 
 \* shell.zig is a JS repl and statically linked with v8. Compiled with -Drelease-safe. The V8 dependency can be further reduced in size if you don't need all the features (eg. disable WASM runtime).
 
@@ -23,9 +23,16 @@ Static libs are built and released with [Github Actions](https://github.com/fuba
 
 \* Time is measured on standard Github instances.
 
-## Build
-You'll need the Zig compiler (0.9.0). You can get that [here](https://ziglang.org/download/).
+## System Requirements
+- Zig compiler (0.9.0). You can get that [here](https://ziglang.org/download/).
+- Python 3 (2.7 seems to work as well)
+- For native macOS builds:
+  - XCode (You won't need this when using zig's c++ toolchain!)<br/>
+if you come across this error:<br />
+`xcode-select: error: tool 'xcodebuild' requires Xcode, but active developer directory '/Library/Developer/CommandLineTools' is a command line tools instance`<br />
+  run `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
 
+## Build
 By default UseGclient=false in build.zig. This will pull the minimum sources and deps needed to build v8 and reduce build times.
 
 If you want to include everything, set UseGclient=true. Build times can be quite long using gclient but afterwards rerunning "zig build" should be incremental. You can also use sccache for better incremental build times.
@@ -35,7 +42,6 @@ If you want to include everything, set UseGclient=true. Build times can be quite
 git clone https://github.com/fubark/zig-v8.git
 cd zig-v8
 
-# You'll need python 3 installed on your machine.
 # Pull prebuilt GN/Ninja. If UseGclient=true, it also pulls depot_tools.
 zig build get-tools
 
