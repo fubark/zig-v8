@@ -297,6 +297,38 @@ void v8__Promise__Resolver__Reject(
     );
 }
 
+const v8::Promise* v8__Promise__Catch(
+        const v8::Promise& self,
+        const v8::Context& ctx,
+        const v8::Function& handler) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->Catch(ptr_to_local(&ctx), ptr_to_local(&handler))
+    );
+}
+
+const v8::Promise* v8__Promise__Then(
+        const v8::Promise& self,
+        const v8::Context& ctx,
+        const v8::Function& handler) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->Then(ptr_to_local(&ctx), ptr_to_local(&handler))
+    );
+}
+
+const v8::Promise* v8__Promise__Then2(
+        const v8::Promise& self,
+        const v8::Context& ctx,
+        const v8::Function& on_fulfilled,
+        const v8::Function& on_rejected) {
+    return maybe_local_to_ptr(
+        ptr_to_local(&self)->Then(
+            ptr_to_local(&ctx),
+            ptr_to_local(&on_fulfilled),
+            ptr_to_local(&on_rejected)
+        )
+    );
+}
+
 // Value
 
 const v8::String* v8__Value__ToString(
@@ -325,6 +357,8 @@ void v8__Value__NumberValue(
 }
 
 bool v8__Value__IsFunction(const v8::Value& self) { return self.IsFunction(); }
+
+bool v8__Value__IsAsyncFunction(const v8::Value& self) { return self.IsAsyncFunction(); }
 
 bool v8__Value__IsObject(const v8::Value& self) { return self.IsObject(); }
 
@@ -567,6 +601,14 @@ void v8__FunctionTemplate__ReadOnlyPrototype(
 }
 
 // Function
+
+const v8::Function* v8__Function__New__DEFAULT(
+        const v8::Context& ctx,
+        v8::FunctionCallback callback) {
+    return maybe_local_to_ptr(
+        v8::Function::New(ptr_to_local(&ctx), callback)
+    );
+}
 
 const v8::Value* v8__Function__Call(
         const v8::Function& self,

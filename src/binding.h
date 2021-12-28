@@ -205,6 +205,7 @@ void v8__Value__NumberValue(
     const Context* context,
     MaybeF64* out);
 bool v8__Value__IsFunction(const Value* self);
+bool v8__Value__IsAsyncFunction(const Value* self);
 bool v8__Value__IsObject(const Value* self);
 bool v8__Value__IsArray(const Value* self);
 void v8__Value__InstanceOf(
@@ -230,6 +231,19 @@ void v8__Promise__Resolver__Reject(
     const Context* ctx,
     const Value* value,
     MaybeBool* out);
+const Promise* v8__Promise__Catch(
+    const Promise* self,
+    const Context* ctx,
+    const Function* handler);
+const Promise* v8__Promise__Then(
+    const Promise* self,
+    const Context* ctx,
+    const Function* handler);
+const Promise* v8__Promise__Then2(
+    const Promise* self,
+    const Context* ctx,
+    const Function* on_fulfilled,
+    const Function* on_rejected);
 
 // Array
 typedef struct Array Array;
@@ -353,6 +367,9 @@ void v8__FunctionTemplate__ReadOnlyPrototype(
     const FunctionTemplate* self);
 
 // Function
+const Function* v8__Function__New__DEFAULT(
+    const Context* ctx,
+    FunctionCallback callback);
 const Value* v8__Function__Call(
     const Function* self,
     const Context* context,

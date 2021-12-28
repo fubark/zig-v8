@@ -416,6 +416,12 @@ pub const Function = struct {
 
     handle: *const c.Function,
 
+    pub fn initDefault(ctx: Context, callback: c.FunctionCallback) Self {
+        return .{
+            .handle = c.v8__Function__New__DEFAULT(ctx.handle, callback).?,
+        };
+    }
+
     /// receiver_val is "this" in the function context. This is equivalent to calling fn.apply(receiver, args) in JS.
     /// Returns null if there was an error.
     pub fn call(self: Self, ctx: Context, receiver_val: anytype, args: []const Value) ?Value {
@@ -448,63 +454,67 @@ pub const Function = struct {
             .handle = self.handle,
         };
     }
-
-    /// Should only be called if you know the underlying type is a v8.Persistent.
-    pub fn castToPersistent(self: Self) Persistent {
-        return .{
-            .handle = self.handle,
-        };
-    }
 };
 
-pub const Persistent = struct {
-    const Self = @This();
+pub fn Persistent(comptime T: type) type {
+    return struct {
+        const Self = @This();
 
-    // The Persistent handle is just like other value handles for easy casting.
-    // But when creating and operating on it, an indirect pointer is used to represent a c.Persistent struct (v8::Persistent<v8::Value> in C++).
-    handle: *const anyopaque,
+        inner: T,
 
-    /// A new value is created that references the original value.
-    pub fn init(isolate: Isolate, value: anytype) Self {
-        var handle: *anyopaque = undefined;
-        c.v8__Persistent__New(isolate.handle, getValueHandle(value), @ptrCast(*c.Persistent, &handle));
-        return .{
-            .handle = handle,
-        };
-    }
+        /// A new value is created that references the original value.
+        /// A Persistent handle is just a pointer just like any other value handles,
+        /// but when creating and operating on it, an indirect pointer is used to represent a c.Persistent struct (v8::Persistent<v8::Value> in C++).
+        pub fn init(isolate: Isolate, value: T) Self {
+            var handle: *anyopaque = undefined;
+            c.v8__Persistent__New(isolate.handle, getValueHandle(value), @ptrCast(*c.Persistent, &handle));
+            return .{
+                .inner = .{
+                    .handle = @ptrCast(@TypeOf(value.handle), handle),
+                },
+            };
+        }
 
-    pub fn deinit(self: *Self) void {
-        c.v8__Persistent__Reset(@ptrCast(*c.Persistent, &self.handle));
-    }
+        pub fn deinit(self: *Self) void {
+            c.v8__Persistent__Reset(@ptrCast(*c.Persistent, &self.inner.handle));
+        }
 
-    /// Should only be called if you know the underlying type is a v8.Function.
-    pub fn castToFunction(self: Self) Function {
-        return .{
-            .handle = @ptrCast(*const c.Function, self.handle),
-        };
-    }
+        pub fn setWeak(self: *Self) void {
+            c.v8__Persistent__SetWeak(@ptrCast(*c.Persistent, &self.inner.handle));
+        }
 
-    /// Should only be called if you know the underlying type is a v8.Object.
-    pub fn castToObject(self: Self) Object {
-        return .{
-            .handle = @ptrCast(*const c.Object, self.handle),
-        };
-    }
+        pub fn setWeakFinalizer(self: *Self, finalizer_ctx: *anyopaque, cb: c.WeakCallback, cb_type: c.WeakCallbackType) void {
+            c.v8__Persistent__SetWeakFinalizer(@ptrCast(*c.Persistent, &self.inner.handle), finalizer_ctx, cb, cb_type);
+        }
 
-    pub fn toValue(self: Self) Value {
-        return .{
-            .handle = self.handle,
-        };
-    }
+        /// Should only be called if you know the underlying type is a v8.Function.
+        pub fn castToFunction(self: Self) Function {
+            return .{
+                .handle = @ptrCast(*const c.Function, self.inner.handle),
+            };
+        }
 
-    pub fn setWeak(self: *Self) void {
-        c.v8__Persistent__SetWeak(@ptrCast(*c.Persistent, &self.handle));
-    }
+        /// Should only be called if you know the underlying type is a v8.Object.
+        pub fn castToObject(self: Self) Object {
+            return .{
+                .handle = @ptrCast(*const c.Object, self.inner.handle),
+            };
+        }
 
-    pub fn setWeakFinalizer(self: *Self, finalizer_ctx: *anyopaque, cb: c.WeakCallback, cb_type: c.WeakCallbackType) void {
-        c.v8__Persistent__SetWeakFinalizer(@ptrCast(*c.Persistent, &self.handle), finalizer_ctx, cb, cb_type);
-    }
-};
+        /// Should only be called if you know the underlying type is a v8.PromiseResolver.
+        pub fn castToPromiseResolver(self: Self) PromiseResolver {
+            return .{
+                .handle = @ptrCast(*const c.PromiseResolver, self.inner.handle),
+            };
+        }
+
+        pub fn toValue(self: Self) Value {
+            return .{
+                .handle = self.inner.handle,
+            };
+        }
+    };
+}
 
 /// [V8]
 /// kParameter will pass a void* parameter back to the callback, kInternalFields
@@ -691,7 +701,14 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Primitive => val.handle,
         Number => val.handle,
         Function => val.handle,
-        Persistent => val.handle,
+        PromiseResolver => val.handle,
+        Persistent(Object) => val.inner.handle,
+        Persistent(Value) => val.inner.handle,
+        Persistent(String) => val.inner.handle,
+        Persistent(Integer) => val.inner.handle,
+        Persistent(Primitive) => val.inner.handle,
+        Persistent(Number) => val.inner.handle,
+        Persistent(PromiseResolver) => val.inner.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Value", .{@typeName(@TypeOf(val))})),
     });
 }
@@ -947,6 +964,10 @@ pub const Value = struct {
         return c.v8__Value__IsFunction(self.handle);
     }
 
+    pub fn isAsyncFunction(self: Self) bool {
+        return c.v8__Value__IsAsyncFunction(self.handle);
+    }
+
     pub fn isArray(self: Self) bool {
         return c.v8__Value__IsArray(self.handle);
     }
@@ -969,6 +990,13 @@ pub const Value = struct {
     pub fn castToArray(self: Self) Array {
         return .{
             .handle = @ptrCast(*const c.Array, self.handle),
+        };
+    }
+
+    /// Should only be called if you know the underlying type is a v8.Promise.
+    pub fn castToPromise(self: Self) Promise {
+        return .{
+            .handle = @ptrCast(*const c.Promise, self.handle),
         };
     }
 };
@@ -1001,6 +1029,24 @@ pub const Promise = struct {
     const Self = @This();
 
     handle: *const c.Promise,
+
+    pub fn onCatch(self: Self, ctx: Context, handler: Function) Promise {
+        return .{
+            .handle = c.v8__Promise__Catch(self.handle, ctx.handle, handler.handle).?,
+        };
+    }
+
+    pub fn then(self: Self, ctx: Context, handler: Function) Promise {
+        return .{
+            .handle = c.v8__Promise__Then(self.handle, ctx.handle, handler.handle).?,
+        };
+    }
+
+    pub fn thenAndCatch(self: Self, ctx: Context, on_fulfilled: Function, on_rejected: Function) Promise {
+        return .{
+            .handle = c.v8__Promise__Then2(self.handle, ctx.handle, on_fulfilled.handle, on_rejected.handle).?,
+        };
+    }
 };
 
 pub const PromiseResolver = struct {
