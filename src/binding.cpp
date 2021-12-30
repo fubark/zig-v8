@@ -528,6 +528,11 @@ const v8::Object* v8__FunctionCallbackInfo__This(
     return local_to_ptr(self.This());
 }
 
+const v8::Value* v8__FunctionCallbackInfo__Data(
+        const v8::FunctionCallbackInfo<v8::Value>& self) {
+    return local_to_ptr(self.Data());
+}
+
 // PropertyCallbackInfo
 
 v8::Isolate* v8__PropertyCallbackInfo__GetIsolate(
@@ -544,6 +549,11 @@ void v8__PropertyCallbackInfo__GetReturnValue(
 const v8::Object* v8__PropertyCallbackInfo__This(
         const v8::PropertyCallbackInfo<v8::Value>& self) {
     return local_to_ptr(self.This());
+}
+
+const v8::Value* v8__PropertyCallbackInfo__Data(
+        const v8::PropertyCallbackInfo<v8::Value>& self) {
+    return local_to_ptr(self.Data());
 }
 
 // ReturnValue
@@ -570,6 +580,13 @@ const v8::FunctionTemplate* v8__FunctionTemplate__New__DEFAULT2(
         v8::Isolate* isolate,
         v8::FunctionCallback callback_or_null) {
     return local_to_ptr(v8::FunctionTemplate::New(isolate, callback_or_null));
+}
+
+const v8::FunctionTemplate* v8__FunctionTemplate__New__DEFAULT3(
+        v8::Isolate* isolate,
+        v8::FunctionCallback callback_or_null,
+        const v8::Value& data) {
+    return local_to_ptr(v8::FunctionTemplate::New(isolate, callback_or_null, ptr_to_local(&data)));
 }
 
 const v8::ObjectTemplate* v8__FunctionTemplate__InstanceTemplate(
@@ -610,6 +627,15 @@ const v8::Function* v8__Function__New__DEFAULT(
     );
 }
 
+const v8::Function* v8__Function__New__DEFAULT2(
+        const v8::Context& ctx,
+        v8::FunctionCallback callback,
+        const v8::Value& data) {
+    return maybe_local_to_ptr(
+        v8::Function::New(ptr_to_local(&ctx), callback, ptr_to_local(&data))
+    );
+}
+
 const v8::Value* v8__Function__Call(
         const v8::Function& self,
         const v8::Context& context,
@@ -638,6 +664,16 @@ const v8::Object* v8__Function__NewInstance(
         )
     );
 }
+
+// External
+
+const v8::External* v8__External__New(
+        v8::Isolate* isolate, 
+        void* value) {
+    return local_to_ptr(v8::External::New(isolate, value));
+}
+
+void* v8__External__Value(const v8::External& self) { return self.Value(); }
 
 // Persistent
 

@@ -21,6 +21,8 @@ pub const AccessorNameSetterCallback = c.AccessorNameSetterCallback;
 
 pub const Name = c.Name;
 
+const Root = @This();
+
 pub const Platform = struct {
     const Self = @This();
 
@@ -107,6 +109,7 @@ pub const Exception = struct {
     }
 };
 
+/// Contains Isolate related methods and convenience methods for creating js values.
 pub const Isolate = struct {
     const Self = @This();
 
@@ -160,6 +163,66 @@ pub const Isolate = struct {
             .handle = c.v8__Isolate__ThrowException(self.handle, getValueHandle(value)).?,
         };
     }
+
+    pub fn initNumber(self: Self, val: f64) Number {
+        return Number.init(self, val);
+    }
+
+    pub fn initNumberBitCastedU64(self: Self, val: u64) Number {
+        return Number.initBitCastedU64(self, val);
+    }
+
+    pub fn initBoolean(self: Self, val: bool) Boolean {
+        return Boolean.init(self, val);
+    }
+
+    pub fn initIntegerU32(self: Self, val: u32) Integer {
+        return Integer.initU32(self, val);
+    }
+
+    pub fn initStringUtf8(self: Self, val: []const u8) String {
+        return String.initUtf8(self, val);
+    }
+
+    pub fn initPersistent(self: Self, comptime T: type, val: T) Persistent(T) {
+        return Persistent(T).init(self, val);
+    }
+
+    pub fn initFunctionTemplateDefault(self: Self) FunctionTemplate {
+        return FunctionTemplate.initDefault(self);
+    }
+
+    pub fn initFunctionTemplateCallback(self: Self, callback: c.FunctionCallback) FunctionTemplate {
+        return FunctionTemplate.initCallback(self, callback);
+    }
+
+    pub fn initObjectTemplateDefault(self: Self) ObjectTemplate {
+        return ObjectTemplate.initDefault(self);
+    }
+
+    pub fn initObjectTemplate(self: Self, constructor: FunctionTemplate) ObjectTemplate {
+        return ObjectTemplate.init(self, constructor);
+    }
+
+    pub fn initUndefined(self: Self) Primitive {
+        return Root.initUndefined(self);
+    }
+
+    pub fn initTrue(self: Self) Boolean {
+        return Root.initTrue(self);
+    }
+
+    pub fn initFalse(self: Self) Boolean {
+        return Root.initFalse(self);
+    }
+
+    pub fn initContext(self: Self, global_tmpl: ?ObjectTemplate, global_obj: ?*c.Value) Context {
+        return Context.init(self, global_tmpl, global_obj);
+    }
+
+    pub fn initExternal(self: Self, val: *anyopaque) External {
+        return External.init(self, val);
+    }
 };
 
 pub const HandleScope = struct {
@@ -169,6 +232,7 @@ pub const HandleScope = struct {
 
     /// [Notes]
     /// This starts a new stack frame to record local objects created.
+    /// Since deinit depends on the inner pointer being the same, init should construct in place.
     pub fn init(self: *Self, isolate: Isolate) void {
         c.v8__HandleScope__CONSTRUCT(&self.inner, isolate.handle);
     }
@@ -268,6 +332,16 @@ pub const PropertyCallbackInfo = struct {
             .handle = c.v8__PropertyCallbackInfo__This(self.handle).?,
         };
     }
+
+    pub fn getData(self: Self) Value {
+        return .{
+            .handle = c.v8__PropertyCallbackInfo__Data(self.handle).?,
+        };
+    }
+
+    pub fn getExternalValue(self: Self) *anyopaque {
+        return self.getData().castToExternal().get();
+    }
 };
 
 pub const WeakCallbackInfo = struct {
@@ -287,7 +361,7 @@ pub const WeakCallbackInfo = struct {
         };
     }
 
-    pub fn getParameter(self: Self) *const anyopaque {
+    pub fn getParameter(self: Self) *anyopaque {
         return c.v8__WeakCallbackInfo__GetParameter(self.handle).?;
     }
 };
@@ -332,6 +406,16 @@ pub const FunctionCallbackInfo = struct {
             .handle = c.v8__FunctionCallbackInfo__This(self.handle).?,
         };
     }
+
+    pub fn getData(self: Self) Value {
+        return .{
+            .handle = c.v8__FunctionCallbackInfo__Data(self.handle).?,
+        };
+    }
+
+    pub fn getExternalValue(self: Self) *anyopaque {
+        return self.getData().castToExternal().get();
+    }
 };
 
 pub const ReturnValue = struct {
@@ -368,6 +452,12 @@ pub const FunctionTemplate = struct {
     pub fn initCallback(isolate: Isolate, callback: c.FunctionCallback) Self {
         return .{
             .handle = c.v8__FunctionTemplate__New__DEFAULT2(isolate.handle, callback).?,
+        };
+    }
+
+    pub fn initCallbackData(isolate: Isolate, callback: c.FunctionCallback, data_val: anytype) Self {
+        return .{
+            .handle = c.v8__FunctionTemplate__New__DEFAULT3(isolate.handle, callback, getValueHandle(data_val)).?,
         };
     }
 
@@ -419,6 +509,12 @@ pub const Function = struct {
     pub fn initDefault(ctx: Context, callback: c.FunctionCallback) Self {
         return .{
             .handle = c.v8__Function__New__DEFAULT(ctx.handle, callback).?,
+        };
+    }
+
+    pub fn initWithData(ctx: Context, callback: c.FunctionCallback, data_val: anytype) Self {
+        return .{
+            .handle = c.v8__Function__New__DEFAULT2(ctx.handle, callback, getValueHandle(data_val)).?,
         };
     }
 
@@ -640,6 +736,22 @@ pub const Object = struct {
     }
 };
 
+pub const External = struct {
+    const Self = @This();
+
+    handle: *const c.External,
+
+    pub fn init(isolate: Isolate, val: *anyopaque) Self {
+        return .{
+            .handle = c.v8__External__New(isolate.handle, val).?,
+        };
+    }
+
+    pub fn get(self: Self) *anyopaque {
+        return c.v8__External__Value(self.handle).?;
+    }
+};
+
 pub const Number = struct {
     const Self = @This();
 
@@ -702,6 +814,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Number => val.handle,
         Function => val.handle,
         PromiseResolver => val.handle,
+        External => val.handle,
         Persistent(Object) => val.inner.handle,
         Persistent(Value) => val.inner.handle,
         Persistent(String) => val.inner.handle,
@@ -997,6 +1110,13 @@ pub const Value = struct {
     pub fn castToPromise(self: Self) Promise {
         return .{
             .handle = @ptrCast(*const c.Promise, self.handle),
+        };
+    }
+
+    /// Should only be called if you know the underlying type is a v8.Promise.
+    pub fn castToExternal(self: Self) External {
+        return .{
+            .handle = @ptrCast(*const c.External, self.handle),
         };
     }
 };

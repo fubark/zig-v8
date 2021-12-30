@@ -329,6 +329,8 @@ void v8__FunctionCallbackInfo__GetReturnValue(
     ReturnValue* res);
 const Object* v8__FunctionCallbackInfo__This(
     const FunctionCallbackInfo* self);
+const Value* v8__FunctionCallbackInfo__Data(
+    const FunctionCallbackInfo* self);
 
 // PropertyCallbackInfo
 typedef struct PropertyCallbackInfo PropertyCallbackInfo;
@@ -338,6 +340,8 @@ void v8__PropertyCallbackInfo__GetReturnValue(
     const PropertyCallbackInfo* self,
     ReturnValue* res);
 const Object* v8__PropertyCallbackInfo__This(
+    const PropertyCallbackInfo* self);
+const Value* v8__PropertyCallbackInfo__Data(
     const PropertyCallbackInfo* self);
 
 // ReturnValue
@@ -354,6 +358,10 @@ const FunctionTemplate* v8__FunctionTemplate__New__DEFAULT(
 const FunctionTemplate* v8__FunctionTemplate__New__DEFAULT2(
     Isolate* isolate,
     FunctionCallback callback_or_null);
+const FunctionTemplate* v8__FunctionTemplate__New__DEFAULT3(
+    Isolate* isolate,
+    FunctionCallback callback_or_null,
+    const Value* data);
 const ObjectTemplate* v8__FunctionTemplate__InstanceTemplate(
     const FunctionTemplate* self);
 const ObjectTemplate* v8__FunctionTemplate__PrototypeTemplate(
@@ -370,6 +378,10 @@ void v8__FunctionTemplate__ReadOnlyPrototype(
 const Function* v8__Function__New__DEFAULT(
     const Context* ctx,
     FunctionCallback callback);
+const Function* v8__Function__New__DEFAULT2(
+    const Context* ctx,
+    FunctionCallback callback,
+    const Value* data);
 const Value* v8__Function__Call(
     const Function* self,
     const Context* context,
@@ -381,6 +393,14 @@ const Object* v8__Function__NewInstance(
     const Context* context,
     int argc,
     const Value* const argv[]);
+
+// External
+typedef struct External External;
+const External* v8__External__New(
+    Isolate* isolate, 
+    void* value);
+void* v8__External__Value(
+    const External* self);
 
 // Persistent
 typedef struct Persistent {
