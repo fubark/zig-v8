@@ -11,6 +11,18 @@ typedef struct FunctionTemplate FunctionTemplate;
 typedef struct Object Object;
 typedef struct Name Name;
 typedef struct Context Context;
+typedef enum PromiseRejectEvent {
+    kPromiseRejectWithNoHandler = 0,
+    kPromiseHandlerAddedAfterReject = 1,
+    kPromiseRejectAfterResolved = 2,
+    kPromiseResolveAfterResolved = 3,
+} PromiseRejectEvent;
+typedef struct PromiseRejectMessage {
+    uintptr_t promise;
+    PromiseRejectEvent event;
+    uintptr_t value;
+} PromiseRejectMessage;
+typedef void (*PromiseRejectCallback)(PromiseRejectMessage);
 // Super type.
 typedef void Value;
 typedef struct SharedPtr {
@@ -64,6 +76,9 @@ int v8__V8__Dispose();
 void v8__V8__ShutdownPlatform();
 const char* v8__V8__GetVersion();
 
+// Microtask
+typedef enum MicrotasksPolicy { kExplicit, kScoped, kAuto } MicrotasksPolicy;
+
 // Isolate
 Isolate* v8__Isolate__New(CreateParams* params);
 void v8__Isolate__Enter(Isolate* isolate);
@@ -73,6 +88,14 @@ Context* v8__Isolate__GetCurrentContext(Isolate* isolate);
 const Value* v8__Isolate__ThrowException(
     Isolate* isolate,
     const Value* exception);
+void v8__Isolate__SetPromiseRejectCallback(
+    Isolate* isolate,
+    PromiseRejectCallback callback);
+MicrotasksPolicy v8__Isolate__GetMicrotasksPolicy(const Isolate* self);
+void v8__Isolate__SetMicrotasksPolicy(
+    Isolate* self,
+    MicrotasksPolicy policy);
+void v8__Isolate__PerformMicrotaskCheckpoint(Isolate* self);
 
 typedef struct StartupData StartupData;
 
@@ -215,6 +238,7 @@ void v8__Value__InstanceOf(
     MaybeBool* out);
 
 // Promise
+typedef enum PromiseState { kPending, kFulfilled, kRejected } PromiseState;
 typedef struct Promise Promise;
 typedef struct PromiseResolver PromiseResolver;
 const PromiseResolver* v8__Promise__Resolver__New(
@@ -244,14 +268,15 @@ const Promise* v8__Promise__Then2(
     const Context* ctx,
     const Function* on_fulfilled,
     const Function* on_rejected);
+PromiseState v8__Promise__State(const Promise* self);
+void v8__Promise__MarkAsHandled(const Promise* self);
 
 // Array
 typedef struct Array Array;
 uint32_t v8__Array__Length(const Array* self);
 
 // Object
-const Object* v8__Object__New(
-    Isolate* isolate);
+const Object* v8__Object__New(Isolate* isolate);
 const Value* v8__Object__GetInternalField(
     const Object* self,
     int index);
@@ -280,10 +305,12 @@ void v8__Object__DefineOwnProperty(
     const Value* value,
     PropertyAttribute attr,
     MaybeBool* out);
+Isolate* v8__Object__GetIsolate(const Object* self);
+const Context* v8__Object__CreationContext(const Object* self);
+int v8__Object__GetIdentityHash(const Object* self);
 
 // Exception
-const Value* v8__Exception__Error(
-    const String* message);
+const Value* v8__Exception__Error(const String* message);
 
 // Number
 typedef struct Number Number;
@@ -343,6 +370,15 @@ const Object* v8__PropertyCallbackInfo__This(
     const PropertyCallbackInfo* self);
 const Value* v8__PropertyCallbackInfo__Data(
     const PropertyCallbackInfo* self);
+
+// PromiseRejectMessage
+PromiseRejectEvent v8__PromiseRejectMessage__GetEvent(
+    const PromiseRejectMessage* self);
+const Promise* v8__PromiseRejectMessage__GetPromise(
+    const PromiseRejectMessage* self);
+const Value* v8__PromiseRejectMessage__GetValue(
+    const PromiseRejectMessage* self);
+usize v8__PromiseRejectMessage__SIZEOF();
 
 // ReturnValue
 void v8__ReturnValue__Set(

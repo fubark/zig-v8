@@ -9,11 +9,37 @@ pub const PropertyAttribute = struct {
     pub const ReadOnly = c.ReadOnly;
 };
 
+pub const PromiseRejectEvent = struct {
+    pub const kPromiseRejectWithNoHandler = c.kPromiseRejectWithNoHandler;
+    pub const kPromiseHandlerAddedAfterReject = c.kPromiseHandlerAddedAfterReject;
+    pub const kPromiseRejectAfterResolved = c.kPromiseRejectAfterResolved;
+    pub const kPromiseResolveAfterResolved = c.kPromiseResolveAfterResolved;
+};
+
+/// [V8]
+/// Policy for running microtasks:
+/// - explicit: microtasks are invoked with the
+///     Isolate::PerformMicrotaskCheckpoint() method;
+/// - scoped: microtasks invocation is controlled by MicrotasksScope objects;
+/// - auto: microtasks are invoked when the script call depth decrements to zero.
+pub const MicrotasksPolicy = struct {
+    pub const kExplicit = c.kExplicit;
+    pub const kScoped = c.kScoped;
+    pub const kAuto = c.kAuto;
+};
+
+pub const PromiseState = struct {
+    pub const kPending = c.kPending;
+    pub const kFulfilled = c.kFulfilled;
+    pub const kRejected = c.kRejected;
+};
+
 // Currently, user callback functions passed into FunctionTemplate will need to have this declared as a param and then
 // converted to FunctionCallbackInfo to get a nicer interface.
 pub const C_FunctionCallbackInfo = c.FunctionCallbackInfo;
 pub const C_PropertyCallbackInfo = c.PropertyCallbackInfo;
 pub const C_WeakCallbackInfo = c.WeakCallbackInfo;
+pub const C_PromiseRejectMessage = c.PromiseRejectMessage;
 
 pub const FunctionCallback = c.FunctionCallback;
 pub const AccessorNameGetterCallback = c.AccessorNameGetterCallback;
@@ -42,6 +68,7 @@ pub const Platform = struct {
         const assert = std.debug.assert;
         assert(@sizeOf(c.CreateParams) == c.v8__Isolate__CreateParams__SIZEOF());
         assert(@sizeOf(c.TryCatch) == c.v8__TryCatch__SIZEOF());
+        assert(@sizeOf(c.PromiseRejectMessage) == c.v8__PromiseRejectMessage__SIZEOF());
         return .{
             .handle = c.v8__Platform__NewDefaultPlatform(@intCast(c_int, thread_pool_size), if (idle_task_support) 1 else 0).?,
         };
@@ -164,6 +191,25 @@ pub const Isolate = struct {
         };
     }
 
+    /// [V8]
+    /// Set callback to notify about promise reject with no handler, or
+    /// revocation of such a previous notification once the handler is added.
+    pub fn setPromiseRejectCallback(self: Self, callback: c.PromiseRejectCallback) void {
+        c.v8__Isolate__SetPromiseRejectCallback(self.handle, callback);
+    }
+
+    pub fn getMicrotasksPolicy(self: Self) c.MicrotasksPolicy {
+        return c.v8__Isolate__GetMicrotasksPolicy(self.handle);
+    }
+
+    pub fn setMicrotasksPolicy(self: Self, policy: c.MicrotasksPolicy) void {
+        c.v8__Isolate__SetMicrotasksPolicy(self.handle, policy);
+    }
+
+    pub fn performMicrotasksCheckpoint(self: Self) void {
+        c.v8__Isolate__PerformMicrotaskCheckpoint(self.handle);
+    }
+
     pub fn initNumber(self: Self, val: f64) Number {
         return Number.init(self, val);
     }
@@ -194,6 +240,10 @@ pub const Isolate = struct {
 
     pub fn initFunctionTemplateCallback(self: Self, callback: c.FunctionCallback) FunctionTemplate {
         return FunctionTemplate.initCallback(self, callback);
+    }
+
+    pub fn initFunctionTemplateCallbackData(self: Self, callback: c.FunctionCallback, data_value: anytype) FunctionTemplate {
+        return FunctionTemplate.initCallbackData(self, callback, data_value);
     }
 
     pub fn initObjectTemplateDefault(self: Self) ObjectTemplate {
@@ -366,6 +416,34 @@ pub const WeakCallbackInfo = struct {
     }
 };
 
+pub const PromiseRejectMessage = struct {
+    const Self = @This();
+
+    inner: c.PromiseRejectMessage,
+
+    pub fn initFromC(val: c.PromiseRejectMessage) Self {
+        return .{
+            .inner = val,
+        };
+    }
+
+    pub fn getEvent(self: Self) c.PromiseRejectEvent {
+        return c.v8__PromiseRejectMessage__GetEvent(&self.inner);
+    }
+
+    pub fn getPromise(self: Self) Promise {
+        return .{
+            .handle = c.v8__PromiseRejectMessage__GetPromise(&self.inner).?,
+        };
+    }
+
+    pub fn getValue(self: Self) Value {
+        return .{
+            .handle = c.v8__PromiseRejectMessage__GetValue(&self.inner).?,
+        };
+    }
+};
+
 pub const FunctionCallbackInfo = struct {
     const Self = @This();
 
@@ -506,6 +584,7 @@ pub const Function = struct {
 
     handle: *const c.Function,
 
+    /// Internally, this will create a temporary FunctionTemplate to get a new Function instance.
     pub fn initDefault(ctx: Context, callback: c.FunctionCallback) Self {
         return .{
             .handle = c.v8__Function__New__DEFAULT(ctx.handle, callback).?,
@@ -733,6 +812,22 @@ pub const Object = struct {
         if (out.has_value == 1) {
             return out.value == 1;
         } else return null;
+    }
+
+    pub fn getIsolate(self: Self) Isolate {
+        return .{
+            .handle = c.v8__Object__GetIsolate(self.handle).?,
+        };
+    }
+
+    pub fn getCreationContext(self: Self) Context {
+        return .{
+            .handle = c.v8__Object__CreationContext(self.handle).?,
+        };
+    }
+
+    pub fn getIdentityHash(self: Self) c_int {
+        return c.v8__Object__GetIdentityHash(self.handle);
     }
 };
 
@@ -1092,6 +1187,13 @@ pub const Value = struct {
         };
     }
 
+    /// Should only be called if you know the underlying type is a v8.String.
+    pub fn castToString(self: Self) String {
+        return .{
+            .handle = @ptrCast(*const c.String, self.handle),
+        };
+    }
+
     /// Should only be called if you know the underlying type is a v8.Object.
     pub fn castToObject(self: Self) Object {
         return .{
@@ -1150,6 +1252,11 @@ pub const Promise = struct {
 
     handle: *const c.Promise,
 
+    /// [V8]
+    /// Register a resolution/rejection handler with a promise.
+    /// The handler is given the respective resolution/rejection value as
+    /// an argument. If the promise is already resolved/rejected, the handler is
+    /// invoked at the end of turn.
     pub fn onCatch(self: Self, ctx: Context, handler: Function) Promise {
         return .{
             .handle = c.v8__Promise__Catch(self.handle, ctx.handle, handler.handle).?,
@@ -1165,6 +1272,22 @@ pub const Promise = struct {
     pub fn thenAndCatch(self: Self, ctx: Context, on_fulfilled: Function, on_rejected: Function) Promise {
         return .{
             .handle = c.v8__Promise__Then2(self.handle, ctx.handle, on_fulfilled.handle, on_rejected.handle).?,
+        };
+    }
+
+    pub fn getState(self: Self) c.PromiseState {
+        return c.v8__Promise__State(self.handle);
+    }
+
+    /// [V8]
+    /// Marks this promise as handled to avoid reporting unhandled rejections.
+    pub fn markAsHandled(self: Self) void {
+        c.v8__Promise__MarkAsHandled(self.handle);
+    }
+
+    pub fn toObject(self: Self) Object {
+        return .{
+            .handle = @ptrCast(*const c.Object, self.handle),
         };
     }
 };
@@ -1186,6 +1309,7 @@ pub const PromiseResolver = struct {
         };
     }
 
+    /// Resolve will continue execution of any yielding generators.
     pub fn resolve(self: Self, ctx: Context, val: Value) ?bool {
         var out: c.MaybeBool = undefined;
         c.v8__Promise__Resolver__Resolve(self.handle, ctx.handle, val.handle, &out);
@@ -1194,6 +1318,7 @@ pub const PromiseResolver = struct {
         } else return null;
     }
 
+    /// Reject will continue execution of any yielding generators.
     pub fn reject(self: Self, ctx: Context, val: Value) ?bool {
         var out: c.MaybeBool = undefined;
         c.v8__Promise__Resolver__Resolve(self.handle, ctx.handle, val.handle, &out);

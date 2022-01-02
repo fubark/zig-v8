@@ -146,6 +146,26 @@ const v8::Value* v8__Isolate__ThrowException(
     return local_to_ptr(isolate->ThrowException(ptr_to_local(&exception)));
 }
 
+void v8__Isolate__SetPromiseRejectCallback(
+        v8::Isolate* isolate,
+        v8::PromiseRejectCallback callback) {
+    isolate->SetPromiseRejectCallback(callback);
+}
+
+v8::MicrotasksPolicy v8__Isolate__GetMicrotasksPolicy(const v8::Isolate* self) {
+    return self->GetMicrotasksPolicy();
+}
+
+void v8__Isolate__SetMicrotasksPolicy(
+        v8::Isolate* self,
+        v8::MicrotasksPolicy policy) {
+    self->SetMicrotasksPolicy(policy);
+}
+
+void v8__Isolate__PerformMicrotaskCheckpoint(v8::Isolate* self) {
+    self->PerformMicrotaskCheckpoint();
+}
+
 // HandleScope
 
 void v8__HandleScope__CONSTRUCT(v8::HandleScope* buf, v8::Isolate* isolate) {
@@ -329,6 +349,14 @@ const v8::Promise* v8__Promise__Then2(
     );
 }
 
+v8::Promise::PromiseState v8__Promise__State(const v8::Promise& self) {
+    return ptr_to_local(&self)->State();
+}
+
+void v8__Promise__MarkAsHandled(const v8::Promise& self) {
+    ptr_to_local(&self)->MarkAsHandled();
+}
+
 // Value
 
 const v8::String* v8__Value__ToString(
@@ -499,6 +527,18 @@ void v8__Object__DefineOwnProperty(
     );
 }
 
+v8::Isolate* v8__Object__GetIsolate(const v8::Object& self) {
+    return ptr_to_local(&self)->GetIsolate();
+}
+
+const v8::Context* v8__Object__CreationContext(const v8::Object& self) {
+    return local_to_ptr(ptr_to_local(&self)->CreationContext());
+}
+
+int v8__Object__GetIdentityHash(const v8::Object& self) {
+    return ptr_to_local(&self)->GetIdentityHash();
+}
+
 // FunctionCallbackInfo
 
 v8::Isolate* v8__FunctionCallbackInfo__GetIsolate(
@@ -554,6 +594,24 @@ const v8::Object* v8__PropertyCallbackInfo__This(
 const v8::Value* v8__PropertyCallbackInfo__Data(
         const v8::PropertyCallbackInfo<v8::Value>& self) {
     return local_to_ptr(self.Data());
+}
+
+// PromiseRejectMessage
+
+v8::PromiseRejectEvent v8__PromiseRejectMessage__GetEvent(const v8::PromiseRejectMessage& self) {
+    return self.GetEvent();
+}
+
+const v8::Promise* v8__PromiseRejectMessage__GetPromise(const v8::PromiseRejectMessage& self) {
+    return local_to_ptr(self.GetPromise());
+}
+
+const v8::Value* v8__PromiseRejectMessage__GetValue(const v8::PromiseRejectMessage& self) {
+    return local_to_ptr(self.GetValue());
+}
+
+size_t v8__PromiseRejectMessage__SIZEOF() {
+    return sizeof(v8::PromiseRejectMessage);
 }
 
 // ReturnValue

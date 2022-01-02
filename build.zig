@@ -116,6 +116,8 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
             // is_official_build will enable cfi but zig does not come with the default cfi_ignorelist. 
             //try zig_cppflags.append("-fno-sanitize-ignorelist");
         //}
+
+        // TODO: Might want to turn V8_ENABLE_CHECKS off to remove asserts.
     }
 
     if (MinimalV8) {
