@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 
 typedef char bool;
 typedef uintptr_t usize;
@@ -273,6 +274,13 @@ void v8__Promise__MarkAsHandled(const Promise* self);
 
 // Array
 typedef struct Array Array;
+const Array* v8__Array__New(
+    Isolate* isolate,
+    int length);
+const Array* v8__Array__New2(
+    Isolate* isolate,
+    const Value* const elements[],
+    size_t length);
 uint32_t v8__Array__Length(const Array* self);
 
 // Object

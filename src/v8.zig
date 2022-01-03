@@ -254,6 +254,14 @@ pub const Isolate = struct {
         return ObjectTemplate.init(self, constructor);
     }
 
+    pub fn initArray(self: Self, len: u32) Array {
+        return Array.init(self, len);
+    }
+
+    pub fn initArrayElements(self: Self, elems: []const Value) Array {
+        return Array.initElements(self, elems);
+    }
+
     pub fn initUndefined(self: Self) Primitive {
         return Root.initUndefined(self);
     }
@@ -753,6 +761,19 @@ pub const Array = struct {
     const Self = @This();
 
     handle: *const c.Array,
+
+    pub fn init(iso: Isolate, len: u32) Self {
+        return .{
+            .handle = c.v8__Array__New(iso.handle, @intCast(c_int, len)).?,
+        };
+    }
+
+    pub fn initElements(iso: Isolate, elems: []const Value) Self {
+        const c_elems = @ptrCast(?[*]const ?*anyopaque, elems.ptr);
+        return .{
+            .handle = c.v8__Array__New2(iso.handle, c_elems, elems.len).?,
+        };
+    }
 
     pub fn length(self: Self) u32 {
         return c.v8__Array__Length(self.handle);

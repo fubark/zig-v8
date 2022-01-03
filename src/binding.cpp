@@ -459,6 +459,21 @@ void v8__ObjectTemplate__SetAccessor__DEFAULT2(
 
 // Array
 
+const v8::Array* v8__Array__New(
+        v8::Isolate* isolate,
+        int length) {
+    return local_to_ptr(v8::Array::New(isolate, length));
+}
+
+const v8::Array* v8__Array__New2(
+        v8::Isolate* isolate,
+        const v8::Value* const elements[],
+        size_t length) {
+    return local_to_ptr(
+        v8::Array::New(isolate, const_ptr_array_to_local_array(elements), length)
+    );
+}
+
 uint32_t v8__Array__Length(const v8::Array& self) { return self.Length(); }
 
 // Object
