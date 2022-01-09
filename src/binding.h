@@ -18,11 +18,7 @@ typedef enum PromiseRejectEvent {
     kPromiseRejectAfterResolved = 2,
     kPromiseResolveAfterResolved = 3,
 } PromiseRejectEvent;
-typedef struct PromiseRejectMessage {
-    uintptr_t promise;
-    PromiseRejectEvent event;
-    uintptr_t value;
-} PromiseRejectMessage;
+typedef struct PromiseRejectMessage PromiseRejectMessage;
 typedef void (*PromiseRejectCallback)(PromiseRejectMessage);
 // Super type.
 typedef void Value;
@@ -334,6 +330,7 @@ const Integer* v8__Integer__New(
 const Integer* v8__Integer__NewFromUnsigned(
     Isolate* isolate,
     uint32_t value);
+int64_t v8__Integer__Value(const Integer* self);
 
 // Template
 typedef struct Template Template;
@@ -380,6 +377,11 @@ const Value* v8__PropertyCallbackInfo__Data(
     const PropertyCallbackInfo* self);
 
 // PromiseRejectMessage
+struct PromiseRejectMessage {
+    uintptr_t promise;
+    PromiseRejectEvent event;
+    uintptr_t value;
+};
 PromiseRejectEvent v8__PromiseRejectMessage__GetEvent(
     const PromiseRejectMessage* self);
 const Promise* v8__PromiseRejectMessage__GetPromise(

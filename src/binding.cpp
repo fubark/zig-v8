@@ -282,6 +282,8 @@ const v8::Integer* v8__Integer__NewFromUnsigned(
     return *v8::Integer::NewFromUnsigned(isolate, value);
 }
 
+int64_t v8__Integer__Value(const v8::Integer& self) { return self.Value(); }
+
 // Promise
 
 const v8::Promise::Resolver* v8__Promise__Resolver__New(

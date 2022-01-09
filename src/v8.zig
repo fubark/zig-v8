@@ -907,6 +907,14 @@ pub const Integer = struct {
         };
     }
 
+    pub fn getValue(self: Self) u64 {
+        return c.v8__Integer__Value(self.handle);
+    }
+
+    pub fn getValueU32(self: Self) u32 {
+        return @intCast(u32, c.v8__Integer__Value(self.handle));
+    }
+
     pub fn toValue(self: Self) Value {
         return .{
             .handle = self.handle,
@@ -931,6 +939,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Function => val.handle,
         PromiseResolver => val.handle,
         External => val.handle,
+        Array => val.handle,
         Persistent(Object) => val.inner.handle,
         Persistent(Value) => val.inner.handle,
         Persistent(String) => val.inner.handle,
@@ -938,6 +947,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Persistent(Primitive) => val.inner.handle,
         Persistent(Number) => val.inner.handle,
         Persistent(PromiseResolver) => val.inner.handle,
+        Persistent(Array) => val.inner.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Value", .{@typeName(@TypeOf(val))})),
     });
 }
@@ -1016,10 +1026,12 @@ pub const TryCatch = struct {
         return c.v8__TryCatch__HasCaught(&self.inner);
     }
 
-    pub fn getException(self: Self) Value {
-        return .{
-            .handle = c.v8__TryCatch__Exception(&self.inner).?,
-        };
+    pub fn getException(self: Self) ?Value {
+        if (c.v8__TryCatch__Exception(&self.inner)) |exception| {
+            return Value{
+                .handle = exception,
+            };
+        } else return null;
     }
 
     pub fn getStackTrace(self: Self, ctx: Context) ?Value {
@@ -1035,9 +1047,7 @@ pub const TryCatch = struct {
             return Message{
                 .handle = message,
             };
-        } else {
-            return null;
-        }
+        } else return null;
     }
 };
 
@@ -1240,6 +1250,13 @@ pub const Value = struct {
     pub fn castToExternal(self: Self) External {
         return .{
             .handle = @ptrCast(*const c.External, self.handle),
+        };
+    }
+
+    /// Should only be called if you know the underlying type is a v8.Integer.
+    pub fn castToInteger(self: Self) Integer {
+        return .{
+            .handle = @ptrCast(*const c.Integer, self.handle),
         };
     }
 };
