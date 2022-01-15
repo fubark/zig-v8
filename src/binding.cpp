@@ -50,6 +50,48 @@ inline static v8::Local<T>* const_ptr_array_to_local_array(
     return mut_local_array;
 }
 
+struct SharedPtr {
+    void* a;
+    void* b;
+};
+
+// The destructor of V is never called.
+// P is not allowed to have a destructor.
+template <class P>
+struct make_pod {
+    template <class V>
+    inline make_pod(V&& value) : pod_(helper<V>(std::move(value))) {}
+    template <class V>
+    inline make_pod(const V& value) : pod_(helper<V>(value)) {}
+    inline operator P() { return pod_; }
+
+    private:
+        P pod_;
+
+    // This helper exists to avoid calling the destructor.
+    // Using a union is a C++ trick to achieve this.
+    template <class V>
+    union helper {
+        static_assert(std::is_pod<P>::value, "type P must a pod type");
+        static_assert(sizeof(V) == sizeof(P), "type P must be same size as type V");
+        static_assert(alignof(V) == alignof(P), "alignment of type P must be compatible with that of type V");
+
+        inline helper(V&& value) : value_(std::move(value)) {}
+        inline helper(const V& value) : value_(value) {}
+        inline ~helper() {}
+
+        inline operator P() {
+            // Do a memcpy here avoid undefined behavior.
+            P result;
+            memcpy(&result, this, sizeof result);
+            return result;
+        }
+
+        private:
+            V value_;
+    };
+};
+
 extern "C" {
 
 // Platform
@@ -93,6 +135,15 @@ const v8::Boolean* v8__False(
     return local_to_ptr(v8::False(isolate));
 }
 
+const v8::Uint8Array* v8__Uint8Array__New(
+        const v8::ArrayBuffer& buf,
+        size_t byte_offset,
+        size_t length) {
+    return local_to_ptr(
+        v8::Uint8Array::New(ptr_to_local(&buf), byte_offset, length)
+    );
+}
+
 // V8
 
 const char* v8__V8__GetVersion() { return v8::V8::GetVersion(); }
@@ -106,14 +157,6 @@ void v8__V8__Initialize() { v8::V8::Initialize(); }
 int v8__V8__Dispose() { return v8::V8::Dispose(); }
 
 void v8__V8__ShutdownPlatform() { v8::V8::ShutdownPlatform(); }
-
-// ArrayBuffer
-
-v8::ArrayBuffer::Allocator* v8__ArrayBuffer__Allocator__NewDefaultAllocator() {
-    return v8::ArrayBuffer::Allocator::NewDefaultAllocator();
-}
-
-void v8__ArrayBuffer__Allocator__DELETE(v8::ArrayBuffer::Allocator* self) { delete self; }
 
 // Isolate
 
@@ -164,6 +207,67 @@ void v8__Isolate__SetMicrotasksPolicy(
 
 void v8__Isolate__PerformMicrotaskCheckpoint(v8::Isolate* self) {
     self->PerformMicrotaskCheckpoint();
+}
+
+// ArrayBuffer
+
+v8::ArrayBuffer::Allocator* v8__ArrayBuffer__Allocator__NewDefaultAllocator() {
+    return v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+}
+
+void v8__ArrayBuffer__Allocator__DELETE(v8::ArrayBuffer::Allocator* self) { delete self; }
+
+v8::BackingStore* v8__ArrayBuffer__NewBackingStore(
+        v8::Isolate* isolate,
+        size_t byte_len) {
+    std::unique_ptr<v8::BackingStore> store = v8::ArrayBuffer::NewBackingStore(isolate, byte_len);
+    return store.release();
+}
+
+v8::BackingStore* v8__ArrayBuffer__NewBackingStore2(
+        void* data,
+        size_t byte_len,
+        v8::BackingStoreDeleterCallback deleter,
+        void* deleter_data) {
+    std::unique_ptr<v8::BackingStore> store = v8::ArrayBuffer::NewBackingStore(data, byte_len, deleter, deleter_data);
+    return store.release();
+}
+
+void* v8__BackingStore__Data(const v8::BackingStore& self) { return self.Data(); }
+
+size_t v8__BackingStore__ByteLength(const v8::BackingStore& self) { return self.ByteLength(); }
+
+bool v8__BackingStore__IsShared(const v8::BackingStore& self) { return self.IsShared(); }
+
+SharedPtr v8__BackingStore__TO_SHARED_PTR(v8::BackingStore* unique_ptr) {
+    return make_pod<SharedPtr>(std::shared_ptr<v8::BackingStore>(unique_ptr));
+}
+
+void std__shared_ptr__v8__BackingStore__reset(std::shared_ptr<v8::BackingStore>* self) { self->reset(); }
+
+v8::BackingStore* std__shared_ptr__v8__BackingStore__get(const std::shared_ptr<v8::BackingStore>& self) { return self.get(); }
+
+const v8::ArrayBuffer* v8__ArrayBuffer__New(
+        v8::Isolate* isolate, size_t byte_len) {
+    return local_to_ptr(v8::ArrayBuffer::New(isolate, byte_len));
+}
+
+const v8::ArrayBuffer* v8__ArrayBuffer__New2(
+        v8::Isolate* isolate,
+        const std::shared_ptr<v8::BackingStore>& backing_store) {
+    return local_to_ptr(v8::ArrayBuffer::New(isolate, backing_store));
+}
+
+size_t v8__ArrayBuffer__ByteLength(const v8::ArrayBuffer& self) { return self.ByteLength(); }
+
+SharedPtr v8__ArrayBuffer__GetBackingStore(const v8::ArrayBuffer& self) {
+    return make_pod<SharedPtr>(ptr_to_local(&self)->GetBackingStore());
+}
+
+// ArrayBufferView
+
+const v8::ArrayBuffer* v8__ArrayBufferView__Buffer(const v8::ArrayBufferView& self) {
+    return local_to_ptr(ptr_to_local(&self)->Buffer());
 }
 
 // HandleScope
@@ -393,6 +497,12 @@ bool v8__Value__IsAsyncFunction(const v8::Value& self) { return self.IsAsyncFunc
 bool v8__Value__IsObject(const v8::Value& self) { return self.IsObject(); }
 
 bool v8__Value__IsArray(const v8::Value& self) { return self.IsArray(); }
+
+bool v8__Value__IsArrayBuffer(const v8::Value& self) { return self.IsArrayBuffer(); }
+
+bool v8__Value__IsArrayBufferView(const v8::Value& self) { return self.IsArrayBufferView(); }
+
+bool v8__Value__IsUint8Array(const v8::Value& self) { return self.IsUint8Array(); }
 
 void v8__Value__InstanceOf(
         const v8::Value& self,

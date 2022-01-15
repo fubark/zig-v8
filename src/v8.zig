@@ -47,6 +47,8 @@ pub const AccessorNameSetterCallback = c.AccessorNameSetterCallback;
 
 pub const Name = c.Name;
 
+pub const SharedPtr = c.SharedPtr;
+
 const Root = @This();
 
 pub const Platform = struct {
@@ -398,7 +400,7 @@ pub const PropertyCallbackInfo = struct {
     }
 
     pub fn getExternalValue(self: Self) *anyopaque {
-        return self.getData().castToExternal().get();
+        return self.getData().castTo(External).get();
     }
 };
 
@@ -500,7 +502,7 @@ pub const FunctionCallbackInfo = struct {
     }
 
     pub fn getExternalValue(self: Self) *anyopaque {
-        return self.getData().castToExternal().get();
+        return self.getData().castTo(External).get();
     }
 };
 
@@ -979,6 +981,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         PromiseResolver => val.handle,
         External => val.handle,
         Array => val.handle,
+        Uint8Array => val.handle,
         Persistent(Object) => val.inner.handle,
         Persistent(Value) => val.inner.handle,
         Persistent(String) => val.inner.handle,
@@ -1250,53 +1253,73 @@ pub const Value = struct {
         return c.v8__Value__IsArray(self.handle);
     }
 
-    /// Should only be called if you know the underlying type is a v8.Function.
-    pub fn castToFunction(self: Self) Function {
-        return .{
-            .handle = @ptrCast(*const c.Function, self.handle),
-        };
+    pub fn isArrayBuffer(self: Self) bool {
+        return c.v8__Value__IsArrayBuffer(self.handle);
     }
 
-    /// Should only be called if you know the underlying type is a v8.String.
-    pub fn castToString(self: Self) String {
-        return .{
-            .handle = @ptrCast(*const c.String, self.handle),
-        };
+    pub fn isArrayBufferView(self: Self) bool {
+        return c.v8__Value__IsArrayBufferView(self.handle);
     }
 
-    /// Should only be called if you know the underlying type is a v8.Object.
-    pub fn castToObject(self: Self) Object {
-        return .{
-            .handle = @ptrCast(*const c.Object, self.handle),
-        };
+    pub fn isUint8Array(self: Self) bool {
+        return c.v8__Value__IsUint8Array(self.handle);
     }
 
-    /// Should only be called if you know the underlying type is a v8.Array.
-    pub fn castToArray(self: Self) Array {
-        return .{
-            .handle = @ptrCast(*const c.Array, self.handle),
-        };
-    }
-
-    /// Should only be called if you know the underlying type is a v8.Promise.
-    pub fn castToPromise(self: Self) Promise {
-        return .{
-            .handle = @ptrCast(*const c.Promise, self.handle),
-        };
-    }
-
-    /// Should only be called if you know the underlying type is a v8.Promise.
-    pub fn castToExternal(self: Self) External {
-        return .{
-            .handle = @ptrCast(*const c.External, self.handle),
-        };
-    }
-
-    /// Should only be called if you know the underlying type is a v8.Integer.
-    pub fn castToInteger(self: Self) Integer {
-        return .{
-            .handle = @ptrCast(*const c.Integer, self.handle),
-        };
+    /// Should only be called if you know the underlying type.
+    pub fn castTo(self: Self, comptime T: type) T {
+        switch (T) {
+            Function => {
+                return .{
+                    .handle = @ptrCast(*const c.Function, self.handle),
+                };
+            },
+            String => {
+                return .{
+                    .handle = @ptrCast(*const c.String, self.handle),
+                };
+            },
+            Object => {
+                return .{
+                    .handle = @ptrCast(*const c.Object, self.handle),
+                };
+            },
+            Array => {
+                return .{
+                    .handle = @ptrCast(*const c.Array, self.handle),
+                };
+            },
+            Promise => {
+                return .{
+                    .handle = @ptrCast(*const c.Promise, self.handle),
+                };
+            },
+            External => {
+                return .{
+                    .handle = @ptrCast(*const c.External, self.handle),
+                };
+            },
+            Integer => {
+                return .{
+                    .handle = @ptrCast(*const c.Integer, self.handle),
+                };
+            },
+            ArrayBuffer => {
+                return .{
+                    .handle = @ptrCast(*const c.ArrayBuffer, self.handle),
+                };
+            },
+            ArrayBufferView => {
+                return .{
+                    .handle = @ptrCast(*const c.ArrayBufferView, self.handle),
+                };
+            },
+            Uint8Array => {
+                return .{
+                    .handle = @ptrCast(*const c.Uint8Array, self.handle),
+                };
+            },
+            else => unreachable,
+        }
     }
 };
 
@@ -1402,5 +1425,100 @@ pub const PromiseResolver = struct {
         if (out.has_value == 1) {
             return out.value == 1;
         } else return null;
+    }
+};
+
+pub const BackingStore = struct {
+    const Self = @This();
+
+    handle: *c.BackingStore,
+
+    /// Underlying handle is initially unmanaged.
+    pub fn init(iso: Isolate, len: usize) Self {
+        return .{
+            .handle = c.v8__ArrayBuffer__NewBackingStore(iso.handle, len).?,
+        };
+    }
+
+    /// Returns null if len is 0.
+    pub fn getData(self: Self) ?*anyopaque {
+        return c.v8__BackingStore__Data(self.handle);
+    }
+
+    pub fn getByteLength(self: Self) usize {
+        return c.v8__BackingStore__ByteLength(self.handle);
+    }
+
+    pub fn isShared(self: Self) bool {
+        return c.v8__BackingStore__IsShared(self.handle);
+    }
+
+    pub fn toSharedPtr(self: Self) SharedPtr {
+        return c.v8__BackingStore__TO_SHARED_PTR(self.handle);
+    }
+
+    pub fn sharedPtrReset(ptr: *SharedPtr) void {
+        c.std__shared_ptr__v8__BackingStore__reset(ptr);
+    }
+
+    pub fn sharedPtrGet(ptr: *const SharedPtr) Self {
+        return .{
+            .handle = c.std__shared_ptr__v8__BackingStore__get(ptr).?,
+        };
+    }
+};
+
+pub const ArrayBuffer = struct {
+    const Self = @This();
+
+    handle: *const c.ArrayBuffer,
+
+    pub fn init(iso: Isolate, len: usize) Self {
+        return .{
+            .handle = c.v8__ArrayBuffer__New(iso.handle, len).?,
+        };
+    }
+
+    pub fn initWithBackingStore(iso: Isolate, store: *const SharedPtr) Self {
+        return .{
+            .handle = c.v8__ArrayBuffer__New2(iso.handle, store).?,
+        };
+    }
+
+    pub fn getBackingStore(self: Self) SharedPtr {
+        return c.v8__ArrayBuffer__GetBackingStore(self.handle);
+    }
+};
+
+pub const ArrayBufferView = struct {
+    const Self = @This();
+
+    handle: *const c.ArrayBufferView,
+
+    pub fn getBuffer(self: Self) ArrayBuffer {
+        return .{
+            .handle = c.v8__ArrayBufferView__Buffer(self.handle).?,
+        };
+    }
+
+    pub fn castFrom(val: anytype) Self {
+        switch (@TypeOf(val)) {
+            Uint8Array => return .{
+                .handle = @ptrCast(*const c.ArrayBufferView, val.handle),
+            },
+            else => unreachable,
+        }
+    }
+};
+
+pub const Uint8Array = struct {
+    const Self = @This();
+
+    handle: *const c.Uint8Array,
+
+    pub fn init(buf: ArrayBuffer, offset: usize, len: usize) Self {
+        return .{
+            .handle = c.v8__Uint8Array__New(buf.handle, offset, len).?,
+        };
     }
 };

@@ -3,6 +3,8 @@
 
 typedef char bool;
 typedef uintptr_t usize;
+typedef struct ArrayBuffer ArrayBuffer;
+typedef struct ArrayBufferAllocator ArrayBufferAllocator;
 typedef struct CreateParams CreateParams;
 typedef struct Isolate Isolate;
 typedef struct String String;
@@ -22,6 +24,7 @@ typedef struct PromiseRejectMessage PromiseRejectMessage;
 typedef void (*PromiseRejectCallback)(PromiseRejectMessage);
 // Super type.
 typedef void Value;
+typedef usize UniquePtr;
 typedef struct SharedPtr {
     usize a;
     usize b;
@@ -59,12 +62,17 @@ bool v8__Platform__PumpMessageLoop(Platform* platform, Isolate* isolate, bool wa
 
 // Root
 typedef struct Primitive Primitive;
+typedef struct Uint8Array Uint8Array;
 const Primitive* v8__Undefined(
     Isolate* isolate);
 const Boolean* v8__True(
     Isolate* isolate);
 const Boolean* v8__False(
     Isolate* isolate);
+const Uint8Array* v8__Uint8Array__New(
+    const ArrayBuffer* buf,
+    size_t byte_offset,
+    size_t length);
 
 // V8
 void v8__V8__InitializePlatform(Platform* platform);
@@ -94,11 +102,10 @@ void v8__Isolate__SetMicrotasksPolicy(
     MicrotasksPolicy policy);
 void v8__Isolate__PerformMicrotaskCheckpoint(Isolate* self);
 
-typedef struct StartupData StartupData;
-
-typedef struct ArrayBufferAllocator ArrayBufferAllocator;
-ArrayBufferAllocator* v8__ArrayBuffer__Allocator__NewDefaultAllocator();
-void v8__ArrayBuffer__Allocator__DELETE(ArrayBufferAllocator* self);
+typedef struct StartupData {
+    const char* data;
+    int raw_size;
+} StartupData;
 
 typedef struct ResourceConstraints {
     usize code_range_size_;
@@ -128,10 +135,34 @@ typedef struct CreateParams {
 usize v8__Isolate__CreateParams__SIZEOF();
 void v8__Isolate__CreateParams__CONSTRUCT(CreateParams* buf);
 
-typedef struct StartupData {
-    const char* data;
-    int raw_size;
-} StartupData;
+// ArrayBuffer
+typedef void (*PromiseRejectCallback)(PromiseRejectMessage);
+typedef void (*BackingStoreDeleterCallback)(void* data, size_t len, void* deleter_data);
+typedef struct BackingStore BackingStore;
+ArrayBufferAllocator* v8__ArrayBuffer__Allocator__NewDefaultAllocator();
+void v8__ArrayBuffer__Allocator__DELETE(ArrayBufferAllocator* self);
+BackingStore* v8__ArrayBuffer__NewBackingStore(
+    Isolate* isolate,
+    size_t byte_len);
+BackingStore* v8__ArrayBuffer__NewBackingStore2(
+    void* data,
+    size_t byte_len,
+    BackingStoreDeleterCallback deleter,
+    void* deleter_data);
+void* v8__BackingStore__Data(const BackingStore* self);
+size_t v8__BackingStore__ByteLength(const BackingStore* self);
+bool v8__BackingStore__IsShared(const BackingStore* self);
+SharedPtr v8__BackingStore__TO_SHARED_PTR(BackingStore* unique_ptr);
+void std__shared_ptr__v8__BackingStore__reset(SharedPtr* self);
+BackingStore* std__shared_ptr__v8__BackingStore__get(const SharedPtr* self);
+const ArrayBuffer* v8__ArrayBuffer__New(Isolate* isolate, size_t byte_len);
+const ArrayBuffer* v8__ArrayBuffer__New2(Isolate* isolate, const SharedPtr* backing_store);
+size_t v8__ArrayBuffer__ByteLength(const ArrayBuffer* self);
+SharedPtr v8__ArrayBuffer__GetBackingStore(const ArrayBuffer* self);
+
+// ArrayBufferView
+typedef struct ArrayBufferView ArrayBufferView;
+const ArrayBuffer* v8__ArrayBufferView__Buffer(const ArrayBufferView* self);
 
 // HandleScope
 typedef struct Address Address;
@@ -228,6 +259,9 @@ bool v8__Value__IsFunction(const Value* self);
 bool v8__Value__IsAsyncFunction(const Value* self);
 bool v8__Value__IsObject(const Value* self);
 bool v8__Value__IsArray(const Value* self);
+bool v8__Value__IsArrayBuffer(const Value* self);
+bool v8__Value__IsArrayBufferView(const Value* self);
+bool v8__Value__IsUint8Array(const Value* self);
 void v8__Value__InstanceOf(
     const Value* self,
     const Context* ctx,
