@@ -556,6 +556,40 @@ int v8__Object__GetIdentityHash(const v8::Object& self) {
     return ptr_to_local(&self)->GetIdentityHash();
 }
 
+void v8__Object__Has(
+        const v8::Object& self,
+        const v8::Context& ctx,
+        const v8::Value& key,
+        v8::Maybe<bool>* out) {
+    *out = ptr_to_local(&self)->Has(
+        ptr_to_local(&ctx), ptr_to_local(&key)
+    );
+}
+
+void v8__Object__HasIndex(
+        const v8::Object& self,
+        const v8::Context& ctx,
+        uint32_t idx,
+        v8::Maybe<bool>* out) {
+    *out = ptr_to_local(&self)->Has(ptr_to_local(&ctx), idx);
+}
+
+const v8::Array* v8__Object__GetOwnPropertyNames(
+        const v8::Object* self,
+        const v8::Context* ctx) {
+    return maybe_local_to_ptr(
+        ptr_to_local(self)->GetOwnPropertyNames(ptr_to_local(ctx))
+    );
+}
+
+const v8::Array* v8__Object__GetPropertyNames(
+        const v8::Object* self,
+        const v8::Context* ctx) {
+    return maybe_local_to_ptr(
+        ptr_to_local(self)->GetPropertyNames(ptr_to_local(ctx))
+    );
+}
+
 // FunctionCallbackInfo
 
 v8::Isolate* v8__FunctionCallbackInfo__GetIsolate(

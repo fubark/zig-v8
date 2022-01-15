@@ -312,6 +312,22 @@ void v8__Object__DefineOwnProperty(
 Isolate* v8__Object__GetIsolate(const Object* self);
 const Context* v8__Object__CreationContext(const Object* self);
 int v8__Object__GetIdentityHash(const Object* self);
+void v8__Object__Has(
+    const Object* self,
+    const Context* ctx,
+    const Value* key,
+    MaybeBool* out);
+void v8__Object__HasIndex(
+    const Object* self,
+    const Context* ctx,
+    uint32_t idx,
+    MaybeBool* out);
+const Array* v8__Object__GetOwnPropertyNames(
+    const Object* self,
+    const Context* ctx);
+const Array* v8__Object__GetPropertyNames(
+    const Object* self,
+    const Context* ctx);
 
 // Exception
 const Value* v8__Exception__Error(const String* message);

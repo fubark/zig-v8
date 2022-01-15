@@ -778,6 +778,17 @@ pub const Array = struct {
     pub fn length(self: Self) u32 {
         return c.v8__Array__Length(self.handle);
     }
+
+    pub fn castTo(self: Self, comptime T: type) T {
+        switch (T) {
+            Object => {
+                return .{
+                    .handle = @ptrCast(*const c.Object, self.handle),
+                };
+            },
+            else => unreachable,
+        }
+    }
 };
 
 pub const Object = struct {
@@ -849,6 +860,34 @@ pub const Object = struct {
 
     pub fn getIdentityHash(self: Self) c_int {
         return c.v8__Object__GetIdentityHash(self.handle);
+    }
+
+    pub fn has(self: Self, ctx: Context, key: Value) bool {
+        var out: c.MaybeBool = undefined;
+        c.v8__Object__Has(self.handle, ctx.handle, key.handle, &out);
+        if (out.has_value == 1) {
+            return out.value == 1;
+        } else return false;
+    }
+
+    pub fn hasIndex(self: Self, ctx: Context, idx: u32) bool {
+        var out: c.MaybeBool = undefined;
+        c.v8__Object__Has(self.handle, ctx.handle, idx, &out);
+        if (out.has_value == 1) {
+            return out.value == 1;
+        } else return false;
+    }
+
+    pub fn getOwnPropertyNames(self: Self, ctx: Context) Array {
+        return .{
+            .handle = c.v8__Object__GetOwnPropertyNames(self.handle, ctx.handle).?,
+        };
+    }
+
+    pub fn getPropertyNames(self: Self, ctx: Context) Array {
+        return .{
+            .handle = c.v8__Object__GetPropertyNames(self.handle, ctx.handle).?,
+        };
     }
 };
 
@@ -1359,7 +1398,7 @@ pub const PromiseResolver = struct {
     /// Reject will continue execution of any yielding generators.
     pub fn reject(self: Self, ctx: Context, val: Value) ?bool {
         var out: c.MaybeBool = undefined;
-        c.v8__Promise__Resolver__Resolve(self.handle, ctx.handle, val.handle, &out);
+        c.v8__Promise__Resolver__Reject(self.handle, ctx.handle, val.handle, &out);
         if (out.has_value == 1) {
             return out.value == 1;
         } else return null;
