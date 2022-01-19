@@ -1,8 +1,8 @@
 diff --git a/config/BUILD.gn b/config/BUILD.gn
-index 3927f0964..f33989e80 100644
+index d5bc52240..613cc4934 100644
 --- a/config/BUILD.gn
 +++ b/config/BUILD.gn
-@@ -298,7 +298,7 @@ config("executable_config") {
+@@ -301,7 +301,7 @@ config("executable_config") {
  
    if (is_win) {
      configs += _windows_linker_configs
@@ -11,7 +11,7 @@ index 3927f0964..f33989e80 100644
      configs += [ "//build/config/mac:mac_dynamic_flags" ]
    } else if (is_ios) {
      configs += [
-@@ -333,7 +333,7 @@ config("shared_library_config") {
+@@ -336,7 +336,7 @@ config("shared_library_config") {
  
    if (is_win) {
      configs += _windows_linker_configs
@@ -53,7 +53,7 @@ index fcc7e1283..de582cae8 100644
  } else {
    _linker_configs = []
 diff --git a/config/compiler/BUILD.gn b/config/compiler/BUILD.gn
-index e45fa2c80..b518912ec 100644
+index af37ee76a..2beeb9f91 100644
 --- a/config/compiler/BUILD.gn
 +++ b/config/compiler/BUILD.gn
 @@ -277,7 +277,7 @@ config("compiler") {
@@ -86,7 +86,7 @@ index e45fa2c80..b518912ec 100644
        if (lld_path != "") {
          ldflags += [ "-B$lld_path" ]
        }
-@@ -1384,7 +1389,9 @@ config("runtime_library") {
+@@ -1385,7 +1390,9 @@ config("runtime_library") {
    } else if (is_ios) {
      configs += [ "//build/config/ios:runtime_library" ]
    } else if (is_mac) {
@@ -127,49 +127,49 @@ index 18d2d5736..0b1689b7d 100644
      sysroot = mac_sdk_path
    } else if (is_ios) {
 diff --git a/toolchain/gcc_toolchain.gni b/toolchain/gcc_toolchain.gni
-index 25d9010ea..38230f2f9 100644
+index 0ad4537a3..8ec70735e 100644
 --- a/toolchain/gcc_toolchain.gni
 +++ b/toolchain/gcc_toolchain.gni
-@@ -357,7 +357,11 @@ template("gcc_toolchain") {
+@@ -367,7 +367,11 @@ template("gcc_toolchain") {
      tool("cc") {
        depfile = "{{output}}.d"
        precompiled_header_type = "gcc"
--      command = "$cc -MMD -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
+-      command = "$cc $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
 +      if (use_zig_tc) {
-+        command = "$cc ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
++      	command = "$cc ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
 +      } else {
-+        command = "$cc -MMD -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
++      	command = "$cc $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
 +      }
        depsformat = "gcc"
        description = "CC {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -366,7 +370,11 @@ template("gcc_toolchain") {
+@@ -376,7 +380,11 @@ template("gcc_toolchain") {
      tool("cxx") {
        depfile = "{{output}}.d"
        precompiled_header_type = "gcc"
--      command = "$cxx -MMD -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}}${extra_cppflags}${extra_cxxflags} -c {{source}} -o {{output}}"
+-      command = "$cxx $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}}${extra_cppflags}${extra_cxxflags} -c {{source}} -o {{output}}"
 +      if (use_zig_tc) {
 +        command = "$cxx ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}}${extra_cppflags}${extra_cxxflags} -c {{source}} -o {{output}}"
 +      } else {
-+        command = "$cxx -MMD -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}}${extra_cppflags}${extra_cxxflags} -c {{source}} -o {{output}}"
++        command = "$cxx $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}}${extra_cppflags}${extra_cxxflags} -c {{source}} -o {{output}}"
 +      }
        depsformat = "gcc"
        description = "CXX {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -375,7 +383,11 @@ template("gcc_toolchain") {
+@@ -385,7 +393,11 @@ template("gcc_toolchain") {
      tool("asm") {
        # For GCC we can just use the C compiler to compile assembly.
        depfile = "{{output}}.d"
--      command = "$asm -MMD -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{asmflags}}${extra_asmflags} -c {{source}} -o {{output}}"
+-      command = "$asm $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{asmflags}}${extra_asmflags} -c {{source}} -o {{output}}"
 +      if (use_zig_tc) {
 +        command = "$asm ${rebuild_string}{{defines}} {{include_dirs}} {{asmflags}}${extra_asmflags} -c {{source}} -o {{output}}"
 +      } else {
-+        command = "$asm -MMD -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{asmflags}}${extra_asmflags} -c {{source}} -o {{output}}"
++        command = "$asm $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{asmflags}}${extra_asmflags} -c {{source}} -o {{output}}"
 +      }
        depsformat = "gcc"
        description = "ASM {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -389,7 +401,11 @@ template("gcc_toolchain") {
+@@ -399,7 +411,11 @@ template("gcc_toolchain") {
        } else {
          rspfile = "{{output}}.rsp"
          rspfile_content = "{{inputs}}"

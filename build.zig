@@ -515,7 +515,7 @@ pub const GetV8SourceStep = struct {
             _ = try self.b.execFromStep(&.{ "git", "clone", dep.repo_url, local_path }, &self.step);
             // Apply patch for v8/build
             if (std.mem.eql(u8, key, "build")) {
-                _ = try self.b.execFromStep(&.{ "git", "apply", "patches/v8_build.patch", "--directory=v8/build" }, &self.step);
+                _ = try self.b.execFromStep(&.{ "git", "apply", "--ignore-space-change", "--ignore-whitespace", "patches/v8_build.patch", "--directory=v8/build" }, &self.step);
             }
         }
         _ = try self.b.execFromStep(&.{ "git", "-C", local_path, "checkout", dep.repo_rev }, &self.step);
