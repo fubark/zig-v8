@@ -513,12 +513,14 @@ pub const GetV8SourceStep = struct {
         const stat = try statPathFromRoot(self.b, local_path);
         if (stat == .NotExist) {
             _ = try self.b.execFromStep(&.{ "git", "clone", dep.repo_url, local_path }, &self.step);
+        }
+        _ = try self.b.execFromStep(&.{ "git", "-C", local_path, "checkout", dep.repo_rev }, &self.step);
+        if (stat == .NotExist) {
             // Apply patch for v8/build
             if (std.mem.eql(u8, key, "build")) {
                 _ = try self.b.execFromStep(&.{ "git", "apply", "--ignore-space-change", "--ignore-whitespace", "patches/v8_build.patch", "--directory=v8/build" }, &self.step);
             }
         }
-        _ = try self.b.execFromStep(&.{ "git", "-C", local_path, "checkout", dep.repo_rev }, &self.step);
     }
 
     fn runHook(self: *Self, hooks: json.Value, name: []const u8) !void {

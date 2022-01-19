@@ -53,7 +53,7 @@ index fcc7e1283..de582cae8 100644
  } else {
    _linker_configs = []
 diff --git a/config/compiler/BUILD.gn b/config/compiler/BUILD.gn
-index af37ee76a..2beeb9f91 100644
+index e49fc28c0..dbc810fa3 100644
 --- a/config/compiler/BUILD.gn
 +++ b/config/compiler/BUILD.gn
 @@ -277,7 +277,7 @@ config("compiler") {
@@ -86,7 +86,7 @@ index af37ee76a..2beeb9f91 100644
        if (lld_path != "") {
          ldflags += [ "-B$lld_path" ]
        }
-@@ -1385,7 +1390,9 @@ config("runtime_library") {
+@@ -1384,7 +1389,9 @@ config("runtime_library") {
    } else if (is_ios) {
      configs += [ "//build/config/ios:runtime_library" ]
    } else if (is_mac) {
@@ -127,23 +127,37 @@ index 18d2d5736..0b1689b7d 100644
      sysroot = mac_sdk_path
    } else if (is_ios) {
 diff --git a/toolchain/gcc_toolchain.gni b/toolchain/gcc_toolchain.gni
-index 0ad4537a3..8ec70735e 100644
+index 0ad4537a3..6b0f4d198 100644
 --- a/toolchain/gcc_toolchain.gni
 +++ b/toolchain/gcc_toolchain.gni
-@@ -367,7 +367,11 @@ template("gcc_toolchain") {
+@@ -348,11 +348,13 @@ template("gcc_toolchain") {
+       extra_ldflags = ""
+     }
+ 
++    if (!use_zig_tc) {
+     if (system_headers_in_deps) {
+       md = "-MD"
+     } else {
+       md = "-MMD"
+     }
++    }
+ 
+     enable_linker_map = defined(invoker.enable_linker_map) &&
+                         invoker.enable_linker_map && generate_linker_map
+@@ -367,7 +369,11 @@ template("gcc_toolchain") {
      tool("cc") {
        depfile = "{{output}}.d"
        precompiled_header_type = "gcc"
 -      command = "$cc $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
 +      if (use_zig_tc) {
-+      	command = "$cc ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
++        command = "$cc ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
 +      } else {
-+      	command = "$cc $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
++        command = "$cc $md -MF $depfile ${rebuild_string}{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}${extra_cppflags}${extra_cflags} -c {{source}} -o {{output}}"
 +      }
        depsformat = "gcc"
        description = "CC {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -376,7 +380,11 @@ template("gcc_toolchain") {
+@@ -376,7 +382,11 @@ template("gcc_toolchain") {
      tool("cxx") {
        depfile = "{{output}}.d"
        precompiled_header_type = "gcc"
@@ -156,7 +170,7 @@ index 0ad4537a3..8ec70735e 100644
        depsformat = "gcc"
        description = "CXX {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -385,7 +393,11 @@ template("gcc_toolchain") {
+@@ -385,7 +395,11 @@ template("gcc_toolchain") {
      tool("asm") {
        # For GCC we can just use the C compiler to compile assembly.
        depfile = "{{output}}.d"
@@ -169,7 +183,7 @@ index 0ad4537a3..8ec70735e 100644
        depsformat = "gcc"
        description = "ASM {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -399,7 +411,11 @@ template("gcc_toolchain") {
+@@ -399,7 +413,11 @@ template("gcc_toolchain") {
        } else {
          rspfile = "{{output}}.rsp"
          rspfile_content = "{{inputs}}"
