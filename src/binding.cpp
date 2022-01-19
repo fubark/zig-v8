@@ -120,18 +120,19 @@ bool v8__Platform__PumpMessageLoop(
 
 // Root
 
-const v8::Primitive* v8__Undefined(
-        v8::Isolate* isolate) {
+const v8::Primitive* v8__Undefined(v8::Isolate* isolate) {
     return local_to_ptr(v8::Undefined(isolate));
 }
 
-const v8::Boolean* v8__True(
-        v8::Isolate* isolate) {
+const v8::Primitive* v8__Null(v8::Isolate* isolate) {
+    return local_to_ptr(v8::Null(isolate));
+}
+
+const v8::Boolean* v8__True(v8::Isolate* isolate) {
     return local_to_ptr(v8::True(isolate));
 }
 
-const v8::Boolean* v8__False(
-        v8::Isolate* isolate) {
+const v8::Boolean* v8__False(v8::Isolate* isolate) {
     return local_to_ptr(v8::False(isolate));
 }
 
@@ -246,6 +247,8 @@ SharedPtr v8__BackingStore__TO_SHARED_PTR(v8::BackingStore* unique_ptr) {
 void std__shared_ptr__v8__BackingStore__reset(std::shared_ptr<v8::BackingStore>* self) { self->reset(); }
 
 v8::BackingStore* std__shared_ptr__v8__BackingStore__get(const std::shared_ptr<v8::BackingStore>& self) { return self.get(); }
+
+long std__shared_ptr__v8__BackingStore__use_count(const std::shared_ptr<v8::BackingStore>& self) { return self.use_count(); }
 
 const v8::ArrayBuffer* v8__ArrayBuffer__New(
         v8::Isolate* isolate, size_t byte_len) {

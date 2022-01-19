@@ -256,6 +256,10 @@ pub const Isolate = struct {
         return ObjectTemplate.init(self, constructor);
     }
 
+    pub fn initObject(self: Self) Object {
+        return Object.init(self);
+    }
+
     pub fn initArray(self: Self, len: u32) Array {
         return Array.init(self, len);
     }
@@ -266,6 +270,10 @@ pub const Isolate = struct {
 
     pub fn initUndefined(self: Self) Primitive {
         return Root.initUndefined(self);
+    }
+
+    pub fn initNull(self: Self) Primitive {
+        return Root.initNull(self);
     }
 
     pub fn initTrue(self: Self) Boolean {
@@ -1335,6 +1343,12 @@ pub fn initUndefined(isolate: Isolate) Primitive {
     };
 }
 
+pub fn initNull(isolate: Isolate) Primitive {
+    return .{
+        .handle = c.v8__Null(isolate.handle).?,
+    };
+}
+
 pub fn initTrue(isolate: Isolate) Boolean {
     return .{
         .handle = c.v8__True(isolate.handle).?,
@@ -1465,6 +1479,10 @@ pub const BackingStore = struct {
         return .{
             .handle = c.std__shared_ptr__v8__BackingStore__get(ptr).?,
         };
+    }
+
+    pub fn sharedPtrUseCount(ptr: *const SharedPtr) u32 {
+        return @intCast(u32, c.std__shared_ptr__v8__BackingStore__use_count(ptr));
     }
 };
 

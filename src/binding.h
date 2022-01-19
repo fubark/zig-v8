@@ -63,12 +63,10 @@ bool v8__Platform__PumpMessageLoop(Platform* platform, Isolate* isolate, bool wa
 // Root
 typedef struct Primitive Primitive;
 typedef struct Uint8Array Uint8Array;
-const Primitive* v8__Undefined(
-    Isolate* isolate);
-const Boolean* v8__True(
-    Isolate* isolate);
-const Boolean* v8__False(
-    Isolate* isolate);
+const Primitive* v8__Undefined(Isolate* isolate);
+const Primitive* v8__Null(Isolate* isolate);
+const Boolean* v8__True(Isolate* isolate);
+const Boolean* v8__False(Isolate* isolate);
 const Uint8Array* v8__Uint8Array__New(
     const ArrayBuffer* buf,
     size_t byte_offset,
@@ -155,6 +153,7 @@ bool v8__BackingStore__IsShared(const BackingStore* self);
 SharedPtr v8__BackingStore__TO_SHARED_PTR(BackingStore* unique_ptr);
 void std__shared_ptr__v8__BackingStore__reset(SharedPtr* self);
 BackingStore* std__shared_ptr__v8__BackingStore__get(const SharedPtr* self);
+long std__shared_ptr__v8__BackingStore__use_count(const SharedPtr* self);
 const ArrayBuffer* v8__ArrayBuffer__New(Isolate* isolate, size_t byte_len);
 const ArrayBuffer* v8__ArrayBuffer__New2(Isolate* isolate, const SharedPtr* backing_store);
 size_t v8__ArrayBuffer__ByteLength(const ArrayBuffer* self);
