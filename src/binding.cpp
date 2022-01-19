@@ -662,7 +662,7 @@ v8::Isolate* v8__Object__GetIsolate(const v8::Object& self) {
 }
 
 const v8::Context* v8__Object__CreationContext(const v8::Object& self) {
-    return local_to_ptr(ptr_to_local(&self)->CreationContext());
+    return maybe_local_to_ptr(ptr_to_local(&self)->GetCreationContext());
 }
 
 int v8__Object__GetIdentityHash(const v8::Object& self) {
