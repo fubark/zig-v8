@@ -7,13 +7,18 @@ typedef struct ArrayBuffer ArrayBuffer;
 typedef struct ArrayBufferAllocator ArrayBufferAllocator;
 typedef struct CreateParams CreateParams;
 typedef struct Isolate Isolate;
+typedef struct StackTrace StackTrace;
+typedef struct StackFrame StackFrame;
 typedef struct String String;
 typedef struct Boolean Boolean;
 typedef struct Function Function;
 typedef struct FunctionTemplate FunctionTemplate;
 typedef struct Object Object;
+typedef struct Message Message;
 typedef struct Name Name;
 typedef struct Context Context;
+// Super type.
+typedef void Value;
 typedef enum PromiseRejectEvent {
     kPromiseRejectWithNoHandler = 0,
     kPromiseHandlerAddedAfterReject = 1,
@@ -22,8 +27,16 @@ typedef enum PromiseRejectEvent {
 } PromiseRejectEvent;
 typedef struct PromiseRejectMessage PromiseRejectMessage;
 typedef void (*PromiseRejectCallback)(PromiseRejectMessage);
-// Super type.
-typedef void Value;
+typedef enum MessageErrorLevel {
+    kMessageLog = (1 << 0),
+    kMessageDebug = (1 << 1),
+    kMessageInfo = (1 << 2),
+    kMessageError = (1 << 3),
+    kMessageWarning = (1 << 4),
+    kMessageAll = kMessageLog | kMessageDebug | kMessageInfo | kMessageError |
+                  kMessageWarning,
+} MessageErrorLevel;
+typedef void (*MessageCallback)(const Message* message, const Value* data);
 typedef usize UniquePtr;
 typedef struct SharedPtr {
     usize a;
@@ -99,6 +112,18 @@ void v8__Isolate__SetMicrotasksPolicy(
     Isolate* self,
     MicrotasksPolicy policy);
 void v8__Isolate__PerformMicrotaskCheckpoint(Isolate* self);
+bool v8__Isolate__AddMessageListener(
+    Isolate* self,
+    MessageCallback callback);
+bool v8__Isolate__AddMessageListenerWithErrorLevel(
+    Isolate* self,
+    MessageCallback callback,
+    int message_levels,
+    const Value* data);
+void v8__Isolate__SetCaptureStackTraceForUncaughtExceptions(
+    Isolate* isolate,
+    bool capture,
+    int frame_limit);
 
 typedef struct StartupData {
     const char* data;
@@ -175,12 +200,12 @@ void v8__HandleScope__CONSTRUCT(HandleScope* buf, Isolate* isolate);
 void v8__HandleScope__DESTRUCT(HandleScope* scope);
 
 // Message
-typedef struct Message Message;
 const String* v8__Message__GetSourceLine(const Message* self, const Context* context);
 const Value* v8__Message__GetScriptResourceName(const Message* self);
 int v8__Message__GetLineNumber(const Message* self, const Context* context);
 int v8__Message__GetStartColumn(const Message* self);
 int v8__Message__GetEndColumn(const Message* self);
+const StackTrace* v8__Message__GetStackTrace(const Message* self);
 
 // TryCatch
 typedef struct TryCatch {
@@ -198,6 +223,29 @@ const Value* v8__TryCatch__Exception(const TryCatch* self);
 const Message* v8__TryCatch__Message(const TryCatch* self);
 bool v8__TryCatch__HasCaught(const TryCatch* self);
 const Value* v8__TryCatch__StackTrace(const TryCatch* self, const Context* context);
+bool v8__TryCatch__IsVerbose(const TryCatch* self);
+void v8__TryCatch__SetVerbose(
+    TryCatch* self, 
+    bool value);
+
+// StackTrace
+int v8__StackTrace__GetFrameCount(const StackTrace* self);
+const StackFrame* v8__StackTrace__GetFrame(
+    const StackTrace* self,
+    Isolate* isolate,
+    uint32_t idx);
+
+// StackFrame
+int v8__StackFrame__GetLineNumber(const StackFrame* self);
+int v8__StackFrame__GetColumn(const StackFrame* self);
+int v8__StackFrame__GetScriptId(const StackFrame* self);
+const String* v8__StackFrame__GetScriptName(const StackFrame* self);
+const String* v8__StackFrame__GetScriptNameOrSourceURL(const StackFrame* self);
+const String* v8__StackFrame__GetFunctionName(const StackFrame* self);
+bool v8__StackFrame__IsEval(const StackFrame* self);
+bool v8__StackFrame__IsConstructor(const StackFrame* self);
+bool v8__StackFrame__IsWasm(const StackFrame* self);
+bool v8__StackFrame__IsUserJavaScript(const StackFrame* self);
 
 // Context
 typedef struct Context Context;
@@ -343,7 +391,7 @@ void v8__Object__DefineOwnProperty(
     PropertyAttribute attr,
     MaybeBool* out);
 Isolate* v8__Object__GetIsolate(const Object* self);
-const Context* v8__Object__CreationContext(const Object* self);
+const Context* v8__Object__GetCreationContext(const Object* self);
 int v8__Object__GetIdentityHash(const Object* self);
 void v8__Object__Has(
     const Object* self,

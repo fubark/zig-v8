@@ -210,6 +210,27 @@ void v8__Isolate__PerformMicrotaskCheckpoint(v8::Isolate* self) {
     self->PerformMicrotaskCheckpoint();
 }
 
+bool v8__Isolate__AddMessageListener(
+        v8::Isolate* self,
+        v8::MessageCallback callback) {
+    return self->AddMessageListener(callback);
+}
+
+bool v8__Isolate__AddMessageListenerWithErrorLevel(
+        v8::Isolate* self,
+        v8::MessageCallback callback,
+        int message_levels,
+        const v8::Value& data) {
+    return self->AddMessageListenerWithErrorLevel(callback, message_levels, ptr_to_local(&data));
+}
+
+void v8__Isolate__SetCaptureStackTraceForUncaughtExceptions(
+        v8::Isolate* isolate,
+        bool capture,
+        int frame_limit) {
+    isolate->SetCaptureStackTraceForUncaughtExceptions(capture, frame_limit);
+}
+
 // ArrayBuffer
 
 v8::ArrayBuffer::Allocator* v8__ArrayBuffer__Allocator__NewDefaultAllocator() {
@@ -661,7 +682,7 @@ v8::Isolate* v8__Object__GetIsolate(const v8::Object& self) {
     return ptr_to_local(&self)->GetIsolate();
 }
 
-const v8::Context* v8__Object__CreationContext(const v8::Object& self) {
+const v8::Context* v8__Object__GetCreationContext(const v8::Object& self) {
     return maybe_local_to_ptr(ptr_to_local(&self)->GetCreationContext());
 }
 
@@ -976,6 +997,14 @@ const v8::Value* v8__TryCatch__StackTrace(
     return maybe_local_to_ptr(self.StackTrace(ptr_to_local(&context)));
 }
 
+bool v8__TryCatch__IsVerbose(const v8::TryCatch& self) { return self.IsVerbose(); }
+
+void v8__TryCatch__SetVerbose(
+        v8::TryCatch* self,
+        bool value) {
+    self->SetVerbose(value);
+}
+
 // Message
 
 const v8::String* v8__Message__GetSourceLine(
@@ -995,12 +1024,49 @@ int v8__Message__GetLineNumber(
     return maybe.FromMaybe(-1);
 }
 
-int v8__Message__GetStartColumn(const v8::Message& self) {
-    return self.GetStartColumn();
+int v8__Message__GetStartColumn(const v8::Message& self) { return self.GetStartColumn(); }
+
+int v8__Message__GetEndColumn(const v8::Message& self) { return self.GetEndColumn(); }
+
+const v8::StackTrace* v8__Message__GetStackTrace(const v8::Message& self) { return local_to_ptr(self.GetStackTrace()); }
+
+// StackTrace
+
+int v8__StackTrace__GetFrameCount(const v8::StackTrace& self) { return self.GetFrameCount(); }
+
+const v8::StackFrame* v8__StackTrace__GetFrame(
+        const v8::StackTrace& self,
+        v8::Isolate* isolate,
+        uint32_t idx) {
+    return local_to_ptr(self.GetFrame(isolate, idx));
 }
 
-int v8__Message__GetEndColumn(const v8::Message& self) {
-    return self.GetEndColumn();
+// StackFrame
+
+int v8__StackFrame__GetLineNumber(const v8::StackFrame& self) { return self.GetLineNumber(); }
+
+int v8__StackFrame__GetColumn(const v8::StackFrame& self) { return self.GetColumn(); }
+
+int v8__StackFrame__GetScriptId(const v8::StackFrame& self) { return self.GetScriptId(); }
+
+const v8::String* v8__StackFrame__GetScriptName(const v8::StackFrame& self) { 
+    return local_to_ptr(self.GetScriptName());
 }
+
+const v8::String* v8__StackFrame__GetScriptNameOrSourceURL(const v8::StackFrame& self) { 
+    return local_to_ptr(self.GetScriptNameOrSourceURL());
+}
+
+const v8::String* v8__StackFrame__GetFunctionName(const v8::StackFrame& self) {
+    return local_to_ptr(self.GetFunctionName());
+}
+
+bool v8__StackFrame__IsEval(const v8::StackFrame& self) { return self.IsEval(); }
+
+bool v8__StackFrame__IsConstructor(const v8::StackFrame& self) { return self.IsConstructor(); }
+
+bool v8__StackFrame__IsWasm(const v8::StackFrame& self) { return self.IsWasm(); }
+
+bool v8__StackFrame__IsUserJavaScript(const v8::StackFrame& self) { return self.IsUserJavaScript(); }
 
 }

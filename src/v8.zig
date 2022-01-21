@@ -16,6 +16,15 @@ pub const PromiseRejectEvent = struct {
     pub const kPromiseResolveAfterResolved = c.kPromiseResolveAfterResolved;
 };
 
+pub const MessageErrorLevel = struct {
+    pub const kMessageLog = c.kMessageLog;
+    pub const kMessageDebug = c.kMessageDebug;
+    pub const kMessageInfo = c.kMessageInfo;
+    pub const kMessageError = c.kMessageError;
+    pub const kMessageWarning = c.kMessageWarning;
+    pub const kMessageAll = c.kMessageAll;
+};
+
 /// [V8]
 /// Policy for running microtasks:
 /// - explicit: microtasks are invoked with the
@@ -41,6 +50,10 @@ pub const C_PropertyCallbackInfo = c.PropertyCallbackInfo;
 pub const C_WeakCallbackInfo = c.WeakCallbackInfo;
 pub const C_PromiseRejectMessage = c.PromiseRejectMessage;
 
+pub const C_Message = c.Message;
+pub const C_Value = c.Value;
+
+pub const MessageCallback = c.MessageCallback;
 pub const FunctionCallback = c.FunctionCallback;
 pub const AccessorNameGetterCallback = c.AccessorNameGetterCallback;
 pub const AccessorNameSetterCallback = c.AccessorNameSetterCallback;
@@ -212,6 +225,20 @@ pub const Isolate = struct {
         c.v8__Isolate__PerformMicrotaskCheckpoint(self.handle);
     }
 
+    pub fn addMessageListener(self: Self, callback: c.MessageCallback) bool {
+        return c.v8__Isolate__AddMessageListener(self.handle, callback);
+    }
+
+    pub fn addMessageListenerWithErrorLevel(self: Self, callback: c.MessageCallback, message_levels: c_int, value: Value) bool {
+        return c.v8__Isolate__AddMessageListenerWithErrorLevel(self.handle, callback, message_levels, value.handle);
+    }
+
+    /// [v8] Tells V8 to capture current stack trace when uncaught exception occurs
+    ///      and report it to the message listeners. The option is off by default.
+    pub fn setCaptureStackTraceForUncaughtExceptions(self: Self, capture: bool, frame_limit: u32) void {
+        c.v8__Isolate__SetCaptureStackTraceForUncaughtExceptions(self.handle, capture, @intCast(c_int, frame_limit));
+    }
+
     pub fn initNumber(self: Self, val: f64) Number {
         return Number.init(self, val);
     }
@@ -222,6 +249,10 @@ pub const Isolate = struct {
 
     pub fn initBoolean(self: Self, val: bool) Boolean {
         return Boolean.init(self, val);
+    }
+
+    pub fn initIntegerI32(self: Self, val: i32) Integer {
+        return Integer.initI32(self, val);
     }
 
     pub fn initIntegerU32(self: Self, val: u32) Integer {
@@ -864,7 +895,7 @@ pub const Object = struct {
 
     pub fn getCreationContext(self: Self) Context {
         return .{
-            .handle = c.v8__Object__CreationContext(self.handle).?,
+            .handle = c.v8__Object__GetCreationContext(self.handle).?,
         };
     }
 
@@ -914,6 +945,12 @@ pub const External = struct {
 
     pub fn get(self: Self) *anyopaque {
         return c.v8__External__Value(self.handle).?;
+    }
+
+    pub fn toValue(self: Self) Value {
+        return .{
+            .handle = self.handle,
+        };
     }
 };
 
@@ -990,6 +1027,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         External => val.handle,
         Array => val.handle,
         Uint8Array => val.handle,
+        StackTrace => val.handle,
         Persistent(Object) => val.inner.handle,
         Persistent(Value) => val.inner.handle,
         Persistent(String) => val.inner.handle,
@@ -1056,6 +1094,87 @@ pub const Message = struct {
     pub fn getEndColumn(self: Self) u32 {
         return @intCast(u32, c.v8__Message__GetEndColumn(self.handle));
     }
+
+    /// [v8] Exception stack trace. By default stack traces are not captured for
+    ///      uncaught exceptions. SetCaptureStackTraceForUncaughtExceptions allows
+    ///      to change this option.
+    pub fn getStackTrace(self: Self) ?StackTrace {
+        if (c.v8__Message__GetStackTrace(self.handle)) |trace| {
+            return StackTrace{
+                .handle = trace,
+            };
+        } else return null;
+    }
+};
+
+pub const StackTrace = struct {
+    const Self = @This();
+
+    handle: *const c.StackTrace,
+
+    pub fn getFrameCount(self: Self) u32 {
+        return @intCast(u32, c.v8__StackTrace__GetFrameCount(self.handle));
+    }
+
+    pub fn getFrame(self: Self, iso: Isolate, idx: u32) StackFrame {
+        return .{
+            .handle = c.v8__StackTrace__GetFrame(self.handle, iso.handle, idx).?,
+        };
+    }
+};
+
+pub const StackFrame = struct {
+    const Self = @This();
+
+    handle: *const c.StackFrame,
+
+    pub fn getLineNumber(self: Self) u32 {
+        return @intCast(u32, c.v8__StackFrame__GetLineNumber(self.handle));
+    }
+
+    pub fn getColumn(self: Self) u32 {
+        return @intCast(u32, c.v8__StackFrame__GetColumn(self.handle));
+    }
+
+    pub fn getScriptId(self: Self) u32 {
+        return @intCast(u32, c.v8__StackFrame__GetScriptId(self.handle));
+    }
+
+    pub fn getScriptName(self: Self) String {
+        return .{
+            .handle = c.v8__StackFrame__GetScriptName(self.handle).?,
+        };
+    }
+
+    pub fn getScriptNameOrSourceUrl(self: Self) String {
+        return .{
+            .handle = c.v8__StackFrame__GetScriptNameOrSourceURL(self.handle).?,
+        };
+    }
+
+    pub fn getFunctionName(self: Self) ?String {
+        if (c.v8__StackFrame__GetFunctionName(self.handle)) |ptr| {
+            return String{
+                .handle = ptr,
+            };
+        } else return null;
+    }
+
+    pub fn isEval(self: Self) bool {
+        return c.v8__StackFrame__IsEval(self.handle);
+    }
+
+    pub fn isConstructor(self: Self) bool {
+        return c.v8__StackFrame__IsConstructor(self.handle);
+    }
+
+    pub fn isWasm(self: Self) bool {
+        return c.v8__StackFrame__IsWasm(self.handle);
+    }
+
+    pub fn isUserJavascript(self: Self) bool {
+        return c.v8__StackFrame__IsUserJavaScript(self.handle);
+    }
 };
 
 pub const TryCatch = struct {
@@ -1098,6 +1217,14 @@ pub const TryCatch = struct {
                 .handle = message,
             };
         } else return null;
+    }
+
+    pub fn isVerbose(self: Self) bool {
+        return c.v8__TryCatch__IsVerbose(&self.inner);
+    }
+
+    pub fn setVerbose(self: *Self, verbose: bool) void {
+        c.v8__TryCatch__SetVerbose(&self.inner, verbose);
     }
 };
 
