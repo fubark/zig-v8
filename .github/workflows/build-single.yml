@@ -32,7 +32,7 @@ on:
 
 jobs:
   build:
-    name: host=${{ github.event.inputs.host }} target=${{ github.event.inputs.target }} mode=${{ github.event.inputs.mode }} 
+    name: host=${{ github.event.inputs.host }} target=${{ github.event.inputs.target }} mode=${{ github.event.inputs.mode }} tc=${{ github.event.inputs.toolchain }}
     runs-on: ${{ github.event.inputs.host }}
     env:
       ARCH_OS: >
@@ -179,7 +179,7 @@ jobs:
           files: v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
 
       - name: Stop sccache.
-        if: env.BUILD_TOOLCHAIN == 'v8'
+        if: env.BUILD_TOOLCHAIN == 'v8' && always()
         run: |
           sccache --show-stats
           sccache --stop-server

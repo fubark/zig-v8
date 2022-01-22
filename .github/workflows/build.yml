@@ -4,7 +4,7 @@ on: [workflow_dispatch, push]
 
 jobs:
   build:
-    name: host=${{ matrix.config.host }} target=${{ matrix.config.target }} mode=${{ matrix.config.mode }} 
+    name: host=${{ matrix.config.host }} target=${{ matrix.config.target }} mode=${{ matrix.config.mode }} tc=${{ matrix.config.toolchain }}
     runs-on: ${{ matrix.config.host }}
     strategy:
       fail-fast: true
@@ -13,16 +13,30 @@ jobs:
           - host: ubuntu-20.04
             target: x86_64-linux
             mode: release
+            toolchain: v8
           - host: macos-10.15
             target: x86_64-macos
             mode: release
+            toolchain: v8
           - host: windows-2019
             target: x86_64-windows-msvc
             mode: release
+            toolchain: v8
+          - host: ubuntu-20.04
+            target: aarch64-macos-gnu
+            mode: release
+            toolchain: zig
     env:
-      ARCH_OS: ${{ startsWith(matrix.config.target, 'x86_64-windows') && 'x86_64-windows' || matrix.config.target }}
+      ARCH_OS: >
+        ${{ fromJson('{
+          "x86_64-windows-msvc": "x86_64-windows",
+          "x86_64-linux": "x86_64-linux",
+          "x86_64-macos": "x86_64-macos",
+          "aarch64-macos-gnu": "aarch64-macos",
+        }')[matrix.config.target] }}
       BUILD_TARGET: ${{ matrix.config.target }}
       BUILD_MODE: ${{ matrix.config.mode }}
+      BUILD_TOOLCHAIN: ${{ matrix.config.toolchain }}
       LIB_NAME: ${{ contains(matrix.config.target, 'windows') && 'c_v8' || 'libc_v8' }}
       LIB_EXT: ${{ contains(matrix.config.target, 'windows') && 'lib' || 'a' }}
     steps:
@@ -70,6 +84,18 @@ jobs:
           version: 0.9.0
 
       - name: Cache.
+        if: env.BUILD_TOOLCHAIN == 'zig'
+        uses: actions/cache@v2
+        with:
+          path: |-
+            ~/.cache/zig
+          key:
+            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-zig
+          restore-keys:
+            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-zig
+
+      - name: Cache.
+        if: env.BUILD_TOOLCHAIN == 'v8'
         uses: actions/cache@v2
         with:
           # Restore sccache so subsequent runs can reuse the cache.
@@ -84,6 +110,7 @@ jobs:
             c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-
 
       - name: Install and start sccache.
+        if: env.BUILD_TOOLCHAIN == 'v8'
         shell: pwsh
         env:
           SCCACHE_DIR: ${{ github.workspace }}/sccache
@@ -113,9 +140,13 @@ jobs:
       - name: Get V8 Source.
         run: zig build get-v8
 
+      - name: Get Cross.
+        if: env.BUILD_TOOLCHAIN == 'zig'
+        run: zig build get-cross
+
       - name: Build release.
         if: env.BUILD_MODE == 'release'
-        run: zig build -Drelease-safe
+        run: zig build -Drelease-safe ${{ env.BUILD_TOOLCHAIN == 'zig' && format('-Dzig-toolchain -Dtarget={0}', env.BUILD_TARGET) }}
 
       - name: Build debug.
         if: env.BUILD_MODE == 'debug'
@@ -140,7 +171,7 @@ jobs:
           files: v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
 
       - name: Stop sccache.
-        if: always()
+        if: env.BUILD_TOOLCHAIN == 'v8' && always()
         run: |
           sccache --show-stats
           sccache --stop-server
