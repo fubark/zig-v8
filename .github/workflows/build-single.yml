@@ -153,8 +153,12 @@ jobs:
         run: zig build get-cross
 
       - name: Build release.
-        if: env.BUILD_MODE == 'release'
-        run: zig build -Drelease-safe ${{ env.BUILD_TOOLCHAIN == 'zig' && format('-Dzig-toolchain -Dtarget={0}', env.BUILD_TARGET) }}
+        if: env.BUILD_MODE == 'release' && env.BUILD_TOOLCHAIN == 'v8'
+        run: zig build -Drelease-safe
+
+      - name: Build release.
+        if: env.BUILD_MODE == 'release' && env.BUILD_TOOLCHAIN == 'zig'
+        run: zig build -Drelease-safe ${{ format('-Dzig-toolchain -Dtarget={0}', env.BUILD_TARGET) }}
 
       - name: Build debug.
         if: env.BUILD_MODE == 'debug'
