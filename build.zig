@@ -137,7 +137,7 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
     if (use_zig_tc) {
         // Use zig's libcxx instead.
-        // If there are problems we can see what types of flags is enabled when this is true.
+        // If there are problems we can see what types of flags are enabled when this is true.
         try gn_args.append("use_custom_libcxx=false");
 
         // custom_toolchain is how we can set zig as the cc/cxx compiler and linker.

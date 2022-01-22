@@ -27,7 +27,7 @@ jobs:
             mode: release
             toolchain: zig
     env:
-      ARCH_OS: >
+      ARCH_OS: >-
         ${{ fromJson('{
           "x86_64-windows-msvc": "x86_64-windows",
           "x86_64-linux": "x86_64-linux",

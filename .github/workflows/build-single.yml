@@ -35,7 +35,7 @@ jobs:
     name: host=${{ github.event.inputs.host }} target=${{ github.event.inputs.target }} mode=${{ github.event.inputs.mode }} tc=${{ github.event.inputs.toolchain }}
     runs-on: ${{ github.event.inputs.host }}
     env:
-      ARCH_OS: >
+      ARCH_OS: >-
         ${{ fromJson('{
           "x86_64-windows-msvc": "x86_64-windows",
           "x86_64-linux": "x86_64-linux",
