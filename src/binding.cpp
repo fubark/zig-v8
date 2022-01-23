@@ -507,6 +507,13 @@ void v8__Value__Uint32Value(
     *out = self.Uint32Value(ptr_to_local(&ctx));
 }
 
+void v8__Value__Int32Value(
+        const v8::Value& self,
+        const v8::Context& ctx,
+        v8::Maybe<int32_t>* out) {
+    *out = self.Int32Value(ptr_to_local(&ctx));
+}
+
 void v8__Value__NumberValue(
         const v8::Value& self,
         const v8::Context& ctx,

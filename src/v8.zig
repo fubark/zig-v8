@@ -52,6 +52,7 @@ pub const C_PromiseRejectMessage = c.PromiseRejectMessage;
 
 pub const C_Message = c.Message;
 pub const C_Value = c.Value;
+pub const C_Address = c.Address;
 
 pub const MessageCallback = c.MessageCallback;
 pub const FunctionCallback = c.FunctionCallback;
@@ -649,7 +650,7 @@ pub const Function = struct {
     /// receiver_val is "this" in the function context. This is equivalent to calling fn.apply(receiver, args) in JS.
     /// Returns null if there was an error.
     pub fn call(self: Self, ctx: Context, receiver_val: anytype, args: []const Value) ?Value {
-        const c_args = @ptrCast(?[*]const ?*anyopaque, args.ptr);
+        const c_args = @ptrCast(?[*]const ?*c.Value, args.ptr);
         if (c.v8__Function__Call(self.handle, ctx.handle, getValueHandle(receiver_val), @intCast(c_int, args.len), c_args)) |ret| {
             return Value{
                 .handle = ret,
@@ -659,7 +660,7 @@ pub const Function = struct {
 
     // Equavalent to js "new".
     pub fn initInstance(self: Self, ctx: Context, args: []const Value) ?Object {
-        const c_args = @ptrCast(?[*]const ?*anyopaque, args.ptr);
+        const c_args = @ptrCast(?[*]const ?*c.Value, args.ptr);
         if (c.v8__Function__NewInstance(self.handle, ctx.handle, @intCast(c_int, args.len), c_args)) |ret| {
             return Object{
                 .handle = ret,
@@ -690,7 +691,7 @@ pub fn Persistent(comptime T: type) type {
         /// A Persistent handle is just a pointer just like any other value handles,
         /// but when creating and operating on it, an indirect pointer is used to represent a c.Persistent struct (v8::Persistent<v8::Value> in C++).
         pub fn init(isolate: Isolate, value: T) Self {
-            var handle: *anyopaque = undefined;
+            var handle: *c.Value = undefined;
             c.v8__Persistent__New(isolate.handle, getValueHandle(value), @ptrCast(*c.Persistent, &handle));
             return .{
                 .inner = .{
@@ -810,7 +811,7 @@ pub const Array = struct {
     }
 
     pub fn initElements(iso: Isolate, elems: []const Value) Self {
-        const c_elems = @ptrCast(?[*]const ?*anyopaque, elems.ptr);
+        const c_elems = @ptrCast(?[*]const ?*c.Value, elems.ptr);
         return .{
             .handle = c.v8__Array__New2(iso.handle, c_elems, elems.len).?,
         };
@@ -1324,6 +1325,16 @@ pub const Value = struct {
         return c.v8__Value__BooleanValue(self.handle, isolate.handle);
     }
 
+    pub fn toI32(self: Self, ctx: Context) i32 {
+        var out: c.MaybeI32 = undefined;
+        c.v8__Value__Int32Value(self.handle, ctx.handle, &out);
+        if (out.has_value == 1) {
+            return out.value;
+        } else {
+            return 0;
+        }
+    }
+
     pub fn toU32(self: Self, ctx: Context) u32 {
         var out: c.MaybeU32 = undefined;
         c.v8__Value__Uint32Value(self.handle, ctx.handle, &out);
@@ -1403,54 +1414,18 @@ pub const Value = struct {
     /// Should only be called if you know the underlying type.
     pub fn castTo(self: Self, comptime T: type) T {
         switch (T) {
-            Function => {
-                return .{
-                    .handle = @ptrCast(*const c.Function, self.handle),
-                };
-            },
+            Object,
+            Function,
+            Array,
+            Promise,
+            External,
+            Integer,
+            ArrayBuffer,
+            ArrayBufferView,
+            Uint8Array,
             String => {
                 return .{
-                    .handle = @ptrCast(*const c.String, self.handle),
-                };
-            },
-            Object => {
-                return .{
-                    .handle = @ptrCast(*const c.Object, self.handle),
-                };
-            },
-            Array => {
-                return .{
-                    .handle = @ptrCast(*const c.Array, self.handle),
-                };
-            },
-            Promise => {
-                return .{
-                    .handle = @ptrCast(*const c.Promise, self.handle),
-                };
-            },
-            External => {
-                return .{
-                    .handle = @ptrCast(*const c.External, self.handle),
-                };
-            },
-            Integer => {
-                return .{
-                    .handle = @ptrCast(*const c.Integer, self.handle),
-                };
-            },
-            ArrayBuffer => {
-                return .{
-                    .handle = @ptrCast(*const c.ArrayBuffer, self.handle),
-                };
-            },
-            ArrayBufferView => {
-                return .{
-                    .handle = @ptrCast(*const c.ArrayBufferView, self.handle),
-                };
-            },
-            Uint8Array => {
-                return .{
-                    .handle = @ptrCast(*const c.Uint8Array, self.handle),
+                    .handle = self.handle,
                 };
             },
             else => unreachable,

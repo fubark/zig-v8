@@ -9,16 +9,26 @@ typedef struct CreateParams CreateParams;
 typedef struct Isolate Isolate;
 typedef struct StackTrace StackTrace;
 typedef struct StackFrame StackFrame;
-typedef struct String String;
-typedef struct Boolean Boolean;
-typedef struct Function Function;
 typedef struct FunctionTemplate FunctionTemplate;
-typedef struct Object Object;
 typedef struct Message Message;
 typedef struct Name Name;
 typedef struct Context Context;
+typedef uintptr_t Address;
 // Super type.
-typedef void Value;
+typedef Address Value;
+typedef Value Object;
+typedef Value String;
+typedef Value Function;
+typedef Value Number;
+typedef Value Primitive;
+typedef Value Integer;
+typedef Value Array;
+typedef Value Uint8Array;
+typedef Value ArrayBufferView;
+typedef Value External;
+typedef Value Boolean;
+typedef Value Promise;
+typedef Value PromiseResolver;
 typedef enum PromiseRejectEvent {
     kPromiseRejectWithNoHandler = 0,
     kPromiseHandlerAddedAfterReject = 1,
@@ -48,6 +58,10 @@ typedef struct MaybeU32 {
     bool has_value;
     uint32_t value;
 } MaybeU32;
+typedef struct MaybeI32 {
+    bool has_value;
+    int32_t value;
+} MaybeI32;
 typedef struct MaybeF64 {
     bool has_value;
     double value;
@@ -74,8 +88,6 @@ void v8__Platform__DELETE(Platform* platform);
 bool v8__Platform__PumpMessageLoop(Platform* platform, Isolate* isolate, bool wait_for_work);
 
 // Root
-typedef struct Primitive Primitive;
-typedef struct Uint8Array Uint8Array;
 const Primitive* v8__Undefined(Isolate* isolate);
 const Primitive* v8__Null(Isolate* isolate);
 const Boolean* v8__True(Isolate* isolate);
@@ -185,11 +197,9 @@ size_t v8__ArrayBuffer__ByteLength(const ArrayBuffer* self);
 SharedPtr v8__ArrayBuffer__GetBackingStore(const ArrayBuffer* self);
 
 // ArrayBufferView
-typedef struct ArrayBufferView ArrayBufferView;
 const ArrayBuffer* v8__ArrayBufferView__Buffer(const ArrayBufferView* self);
 
 // HandleScope
-typedef struct Address Address;
 typedef struct HandleScope {
     // internal vars.
     Isolate* isolate_;
@@ -298,6 +308,10 @@ void v8__Value__Uint32Value(
     const Value* self,
     const Context* ctx,
     MaybeU32* out);
+void v8__Value__Int32Value(
+    const Value* self,
+    const Context* ctx,
+    MaybeI32* out);
 void v8__Value__NumberValue(
     const Value* self,
     const Context* context,
@@ -317,8 +331,6 @@ void v8__Value__InstanceOf(
 
 // Promise
 typedef enum PromiseState { kPending, kFulfilled, kRejected } PromiseState;
-typedef struct Promise Promise;
-typedef struct PromiseResolver PromiseResolver;
 const PromiseResolver* v8__Promise__Resolver__New(
     const Context* ctx);
 const Promise* v8__Promise__Resolver__GetPromise(
@@ -350,7 +362,6 @@ PromiseState v8__Promise__State(const Promise* self);
 void v8__Promise__MarkAsHandled(const Promise* self);
 
 // Array
-typedef struct Array Array;
 const Array* v8__Array__New(
     Isolate* isolate,
     int length);
@@ -414,13 +425,11 @@ const Array* v8__Object__GetPropertyNames(
 const Value* v8__Exception__Error(const String* message);
 
 // Number
-typedef struct Number Number;
 const Number* v8__Number__New(
     Isolate* isolate,
     double value);
 
 // Integer
-typedef struct Integer Integer;
 const Integer* v8__Integer__New(
     Isolate* isolate,
     int32_t value);
@@ -538,7 +547,6 @@ const Object* v8__Function__NewInstance(
     const Value* const argv[]);
 
 // External
-typedef struct External External;
 const External* v8__External__New(
     Isolate* isolate, 
     void* value);
@@ -577,7 +585,6 @@ void* v8__WeakCallbackInfo__GetParameter(
     const WeakCallbackInfo* self);
 
 // ObjectTemplate
-typedef struct Object Object;
 typedef struct ObjectTemplate ObjectTemplate;
 ObjectTemplate* v8__ObjectTemplate__New__DEFAULT(
     Isolate* isolate);
