@@ -197,7 +197,7 @@ pub fn getTryCatchErrorString(alloc: std.mem.Allocator, isolate: v8.Isolate, try
         return buf.toOwnedSlice();
     } else {
         // V8 didn't provide any extra information about this error, just get exception str.
-        const exception = try_catch.getException();
+        const exception = try_catch.getException().?;
         return valueToUtf8Alloc(alloc, isolate, ctx, exception);
     }
 }
