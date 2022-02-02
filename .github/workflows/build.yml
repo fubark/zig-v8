@@ -14,10 +14,10 @@ jobs:
             target: x86_64-linux-gnu
             mode: release
             toolchain: zig
-          - host: ubuntu-20.04
+          - host: macos-11
             target: x86_64-macos-gnu
             mode: release
-            toolchain: zig
+            toolchain: v8
           - host: ubuntu-20.04
             target: x86_64-windows-gnu
             mode: release
