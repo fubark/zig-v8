@@ -55,13 +55,6 @@ config("c_v8_config") {
 # Based on template("clang_toolchain") in build/toolchain/gcc_toolchain.gni
 template("zig_toolchain") {
   gcc_toolchain(target_name) {
-    cc = "zig cc"
-    cxx = "zig c++"
-    # ld commands in v8 use cxx with -fuse-ld
-    ld = cxx
-    #ar = "${prefix}/llvm-ar"
-    ar = "zig ar"
-
     prefix = rebase_path("$clang_base_path/bin", root_build_dir)
     readelf = "${prefix}/llvm-readelf"
     # Is this even used?
@@ -82,10 +75,10 @@ template("zig_toolchain") {
         "enable_linker_map",
         "loadable_module_extension",
         "use_unstripped_as_runtime_outputs",
-        "extra_cppflags",
-        "extra_cxxflags",
-        "extra_ldflags",
-        "extra_asmflags",
+        "cc",
+        "cxx",
+        "ld",
+        "ar",
       ])
 
     toolchain_args = {
@@ -99,10 +92,13 @@ template("zig_toolchain") {
 
 # Used to compile the v8 library.
 zig_toolchain("main_zig_toolchain") {
-  extra_cppflags = zig_cppflags
-  extra_cxxflags = zig_cxxflags
-  extra_ldflags = zig_ldflags
-  extra_asmflags = zig_asmflags
+  cc = zig_cc
+  cxx = zig_cxx
+  # ld commands in v8 use cxx with -fuse-ld
+  ld = cxx
+  #ar = "${prefix}/llvm-ar"
+  ar = "zig ar"
+
   toolchain_args = {
     current_cpu = target_cpu
     current_os = target_os
@@ -113,9 +109,13 @@ zig_toolchain("main_zig_toolchain") {
 # v8_current_cpu indicates that we are still targeting a different arch but must compile tools to run on host machine.
 # See gni/snapshot_toolchain.gni
 zig_toolchain("v8_zig_toolchain") {
-  extra_cppflags = v8_zig_cppflags
-  extra_cxxflags = v8_zig_cxxflags
-  extra_ldflags = v8_zig_ldflags
+  cc = host_zig_cc
+  cxx = host_zig_cxx
+  # ld commands in v8 use cxx with -fuse-ld
+  ld = cxx
+  #ar = "${prefix}/llvm-ar"
+  ar = "zig ar"
+
   toolchain_args = {
     current_os = host_os
     current_cpu = host_cpu

@@ -11,17 +11,17 @@ jobs:
       matrix:
         config:
           - host: ubuntu-20.04
-            target: x86_64-linux
+            target: x86_64-linux-gnu
             mode: release
-            toolchain: v8
-          - host: macos-10.15
-            target: x86_64-macos
+            toolchain: zig
+          - host: ubuntu-20.04
+            target: x86_64-macos-gnu
             mode: release
-            toolchain: v8
-          - host: windows-2019
-            target: x86_64-windows-msvc
+            toolchain: zig
+          - host: ubuntu-20.04
+            target: x86_64-windows-gnu
             mode: release
-            toolchain: v8
+            toolchain: zig
           - host: ubuntu-20.04
             target: aarch64-macos-gnu
             mode: release
@@ -29,10 +29,17 @@ jobs:
     env:
       ARCH_OS: >-
         ${{ fromJson('{
-          "x86_64-windows-msvc": "x86_64-windows",
-          "x86_64-linux": "x86_64-linux",
-          "x86_64-macos": "x86_64-macos",
+          "x86_64-windows-gnu": "x86_64-windows",
+          "x86_64-linux-gnu": "x86_64-linux",
+          "x86_64-macos-gnu": "x86_64-macos",
           "aarch64-macos-gnu": "aarch64-macos",
+        }')[matrix.config.target] }}
+      ZIG_TARGET_FLAG: >-
+        ${{ fromJson('{
+          "x86_64-windows-gnu": "-Dtarget=x86_64-windows-gnu -Dcpu=baseline",
+          "x86_64-linux-gnu": "-Dtarget=x86_64-linux-gnu -Dcpu=baseline",
+          "x86_64-macos-gnu": "-Dtarget=x86_64-macos.10.13-gnu -Dcpu=baseline",
+          "aarch64-macos-gnu": "-Dtarget=aarch64-macos.11-gnu -Dcpu=baseline",
         }')[matrix.config.target] }}
       BUILD_TARGET: ${{ matrix.config.target }}
       BUILD_MODE: ${{ matrix.config.mode }}
@@ -146,21 +153,29 @@ jobs:
 
       - name: Build release.
         if: env.BUILD_MODE == 'release' && env.BUILD_TOOLCHAIN == 'v8'
-        run: zig build -Drelease-safe
+        run: zig build -Drelease-safe ${{ env.ZIG_TARGET_FLAG }}
 
       - name: Build release.
         if: env.BUILD_MODE == 'release' && env.BUILD_TOOLCHAIN == 'zig'
-        run: zig build -Drelease-safe ${{ format('-Dzig-toolchain -Dtarget={0}', env.BUILD_TARGET) }}
+        run: zig build -Drelease-safe ${{ env.ZIG_TARGET_FLAG }} -Dzig-toolchain
 
       - name: Build debug.
         if: env.BUILD_MODE == 'debug'
         run: zig build
 
       - name: Copy binary.
+        if: env.BUILD_TARGET != 'x86_64-windows-gnu'
         continue-on-error: true
         run: cp
-          v8-out/${{ env.ARCH_OS }}/${{ env.BUILD_MODE }}/ninja/obj/zig/${{ env.LIB_NAME }}.${{ env.LIB_EXT }}
-          v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
+          v8-build/${{ env.ARCH_OS }}/${{ env.BUILD_MODE }}/ninja/obj/zig/${{ env.LIB_NAME }}.${{ env.LIB_EXT }}
+          v8-build/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
+
+      - name: Copy binary.
+        if: env.BUILD_TARGET == 'x86_64-windows-gnu'
+        continue-on-error: true
+        run: cp
+          v8-build/${{ env.ARCH_OS }}/${{ env.BUILD_MODE }}/ninja/obj/zig/libc_v8.a
+          v8-build/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
 
       - name: Github Release.
         uses: softprops/action-gh-release@v0.1.14
@@ -172,7 +187,7 @@ jobs:
           body: Release
           name: ${{ env.BUILD_TAG }}
           tag_name: ${{ env.BUILD_TAG }}
-          files: v8-out/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
+          files: v8-build/${{ env.LIB_NAME }}_${{ env.BUILD_TARGET }}_${{ env.BUILD_MODE }}_${{ env.BUILD_TAG }}.${{ env.LIB_EXT }}
 
       - name: Stop sccache.
         if: env.BUILD_TOOLCHAIN == 'v8' && always()

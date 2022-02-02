@@ -88,10 +88,10 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         else => {},
     }
 
-    var zig_asmflags = std.ArrayList([]const u8).init(b.allocator);
-    var zig_cppflags = std.ArrayList([]const u8).init(b.allocator);
-    var v8_zig_cppflags = std.ArrayList([]const u8).init(b.allocator);
-    var v8_zig_ldflags = std.ArrayList([]const u8).init(b.allocator);
+    var zig_cc = std.ArrayList([]const u8).init(b.allocator);
+    var zig_cxx = std.ArrayList([]const u8).init(b.allocator);
+    var host_zig_cc = std.ArrayList([]const u8).init(b.allocator);
+    var host_zig_cxx = std.ArrayList([]const u8).init(b.allocator);
 
     if (mode == .Debug) {
         try gn_args.append("is_debug=true");
@@ -113,8 +113,8 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         // Disable that with this:
         //try gn_args.append("chrome_pgo_phase=0");
         //if (use_zig_tc) {
-            // is_official_build will enable cfi but zig does not come with the default cfi_ignorelist. 
-            //try zig_cppflags.append("-fno-sanitize-ignorelist");
+        // is_official_build will enable cfi but zig does not come with the default cfi_ignorelist.
+        //try zig_cppflags.append("-fno-sanitize-ignorelist");
         //}
 
         // TODO: Might want to turn V8_ENABLE_CHECKS off to remove asserts.
@@ -136,6 +136,49 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
     }
 
     if (use_zig_tc) {
+        // Set target and cpu for building the lib.
+        // TODO: If mcpu is equavalent to -Dcpu then use that instead
+        try zig_cc.append(b.fmt("zig cc --target={s} -mcpu=baseline", .{try target.zigTriple(b.allocator)}));
+        try zig_cxx.append(b.fmt("zig c++ --target={s} -mcpu=baseline", .{try target.zigTriple(b.allocator)}));
+
+        try host_zig_cc.append("zig cc --target=native");
+        try host_zig_cxx.append("zig c++ --target=native");
+
+        if (target.getOsTag() == .windows and target.getAbi() == .gnu) {
+            // V8 expects __declspec(dllexport) to not expand in it's test in src/base/export-template.h but it does when compiling with mingw.
+            try zig_cxx.append("-DEXPORT_TEMPLATE_TEST_MSVC_HACK_DEFAULT\\(...\\)=true");
+        }
+        if (target.getOsTag() == .windows and builtin.os.tag != .windows) {
+            // Cross building to windows probably is case sensitive to header files, so provide them in include.
+            // Note: Directory is relative to ninja build folder.
+            try zig_cxx.append("-I../../../../cross-windows");
+
+            // Make src/base/bits.h include win32-headers.h
+            try zig_cxx.append("-DV8_OS_WIN32=1");
+
+            // Use wchar_t unicode functions.
+            try zig_cxx.append("-DUNICODE=1");
+
+            // clang doesn't seem to recognize guard(nocf) even with -fdeclspec. It might be because mingw has a macro for __declspec.
+            try zig_cxx.append("-Wno-error=unknown-attributes");
+
+            // include/v8config.h doesn't set mingw flags if __clang__ is defined.
+            try zig_cxx.append("-DV8_CC_MINGW32=1");
+            try zig_cxx.append("-DV8_CC_MINGW64=1");
+            try zig_cxx.append("-DV8_CC_MINGW=1");
+
+            // Windows version. See build/config/win/BUILD.gn
+            try zig_cxx.append("-DNTDDI_VERSION=NTDDI_WIN10_VB");
+            try zig_cxx.append("-D_WIN32_WINNT=0x0A00");
+            try zig_cxx.append("-DWINVER=0x0A00");
+
+            // Enable support for MSVC pragmas.
+            try zig_cxx.append("-fms-extensions");
+
+            // Disable instrumentation since mingw doesn't have TraceLoggingProvider.h
+            try gn_args.append("v8_enable_system_instrumentation=false");
+        }
+
         // Use zig's libcxx instead.
         // If there are problems we can see what types of flags are enabled when this is true.
         try gn_args.append("use_custom_libcxx=false");
@@ -145,52 +188,39 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
         if (target.getOsTag() == .linux and target.getCpuArch() == .x86_64) {
             // Should add target flags that matches: //build/config/compiler:compiler_cpu_abi
-            try zig_cppflags.append("--target=x86_64-linux-gnu");
-            try zig_cppflags.append("-m64");
-            try zig_cppflags.append("-msse3");
-
-            try gn_args.append("zig_ldflags=\"-m64\"");
+            try zig_cc.append("-m64");
+            try zig_cxx.append("-m64");
         } else if (target.getOsTag() == .macos and target.getCpuArch() == .aarch64) {
-            try zig_asmflags.append("--target=aarch64-macos-gnu");
-            try zig_cppflags.append("--target=aarch64-macos-gnu");
             if (builtin.os.tag != .macos) {
                 // Cross compiling.
-                try zig_cppflags.append("-isystem");
+                try zig_cc.append("-isystem");
+                try zig_cxx.append("-isystem");
                 const sysroot_abs = b.pathFromRoot("./vendor/sysroot/macos-12/usr/include");
-                try zig_cppflags.append(sysroot_abs);
+                try zig_cc.append(sysroot_abs);
+                try zig_cxx.append(sysroot_abs);
             }
-            if (builtin.cpu.arch != target.getCpuArch()) {
-                try gn_args.append("v8_snapshot_toolchain=\"//zig:v8_zig_toolchain\"");
-                const target_arg = try std.fmt.allocPrint(b.allocator, "--target={s}", .{getArchOs(b.allocator, builtin.cpu.arch, builtin.os.tag)});
-                try v8_zig_cppflags.append(target_arg);
-                try v8_zig_ldflags.append(target_arg);
-            }
+        }
+        if (builtin.cpu.arch != target.getCpuArch() or builtin.os.tag != target.getOsTag()) {
+            try gn_args.append("v8_snapshot_toolchain=\"//zig:v8_zig_toolchain\"");
         }
 
         // Just warn for now. TODO: Check to remove after next clang update.
         // https://bugs.chromium.org/p/chromium/issues/detail?id=1016945
-        try gn_args.append("zig_cxxflags=\"-Wno-error=builtin-assume-aligned-alignment\"");
-        try gn_args.append("v8_zig_cxxflags=\"-Wno-error=builtin-assume-aligned-alignment\"");
+        try zig_cxx.append("-Wno-error=builtin-assume-aligned-alignment");
+        try host_zig_cxx.append("-Wno-error=builtin-assume-aligned-alignment");
 
         try gn_args.append("use_zig_tc=true");
         try gn_args.append("cxx_use_ld=\"zig ld.lld\"");
 
-        // Build extra compiler flags.
-        const zig_asmflags_str = try std.mem.join(b.allocator, " ", zig_asmflags.items);
-        const zig_asmflags_arg = try std.fmt.allocPrint(b.allocator, "zig_asmflags=\"{s}\"", .{zig_asmflags_str});
-        try gn_args.append(zig_asmflags_arg);
-
-        const zig_cppflags_str = try std.mem.join(b.allocator, " ", zig_cppflags.items);
-        const zig_cppflags_arg = try std.fmt.allocPrint(b.allocator, "zig_cppflags=\"{s}\"", .{zig_cppflags_str});
-        try gn_args.append(zig_cppflags_arg);
-
-        const v8_zig_cppflags_str = try std.mem.join(b.allocator, " ", v8_zig_cppflags.items);
-        const v8_zig_cppflags_arg = try std.fmt.allocPrint(b.allocator, "v8_zig_cppflags=\"{s}\"", .{v8_zig_cppflags_str});
-        try gn_args.append(v8_zig_cppflags_arg);
-
-        const v8_zig_ldflags_str = try std.mem.join(b.allocator, " ", v8_zig_ldflags.items);
-        const v8_zig_ldflags_arg = try std.fmt.allocPrint(b.allocator, "v8_zig_ldflags=\"{s}\"", .{v8_zig_ldflags_str});
-        try gn_args.append(v8_zig_ldflags_arg);
+        // Build zig cc strings.
+        var arg = b.fmt("zig_cc=\"{s}\"", .{try std.mem.join(b.allocator, " ", zig_cc.items)});
+        try gn_args.append(arg);
+        arg = b.fmt("zig_cxx=\"{s}\"", .{try std.mem.join(b.allocator, " ", zig_cxx.items)});
+        try gn_args.append(arg);
+        arg = b.fmt("host_zig_cc=\"{s}\"", .{try std.mem.join(b.allocator, " ", host_zig_cc.items)});
+        try gn_args.append(arg);
+        arg = b.fmt("host_zig_cxx=\"{s}\"", .{try std.mem.join(b.allocator, " ", host_zig_cxx.items)});
+        try gn_args.append(arg);
     } else {
         if (builtin.os.tag != .windows) {
             try gn_args.append("cxx_use_ld=\"lld\"");
@@ -228,7 +258,7 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
     const mode_str: []const u8 = if (mode == .Debug) "debug" else "release";
     // GN will generate ninja build files in ninja_out_path which will also contain the artifacts after running ninja.
-    const ninja_out_path = try std.fmt.allocPrint(b.allocator, "v8-out/{s}/{s}/ninja", .{
+    const ninja_out_path = try std.fmt.allocPrint(b.allocator, "v8-build/{s}/{s}/ninja", .{
         getTargetId(b.allocator, target),
         mode_str,
     });
@@ -241,14 +271,14 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
     // --root-target is a directory that must be inside the source root where we can have a custom BUILD.gn.
     //      Since gclient/v8 is not part of our repo, we copy over BUILD.gn to gclient/v8/zig/BUILD.gn before we run gn.
     // To see v8 dependency tree:
-    // cd gclient/v8 && gn desc ../../v8-out/x86_64-linux/release/ninja/ :v8 --tree
+    // cd gclient/v8 && gn desc ../../v8-build/x86_64-linux/release/ninja/ :v8 --tree
     // We can't see our own config because gn desc doesn't accept a --root-target.
     // One idea is to append our BUILD.gn to the v8 BUILD.gn instead of putting it in a subdirectory.
     if (UseGclient) {
         var run_gn = b.addSystemCommand(&.{ gn, "--root=gclient/v8", "--root-target=//zig", "--dotfile=.gn", "gen", ninja_out_path, args });
         step.step.dependOn(&run_gn.step);
     } else {
-        // To see available args for gn: cd v8 && gn args --list ../v8-out/{target}/release/ninja/
+        // To see available args for gn: cd v8 && gn args --list ../v8-build/{target}/release/ninja/
         var run_gn = b.addSystemCommand(&.{ gn, "--root=v8", "--root-target=//zig", "--dotfile=.gn", "gen", ninja_out_path, args });
         step.step.dependOn(&run_gn.step);
     }
@@ -262,7 +292,7 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 }
 
 fn getArchOs(alloc: std.mem.Allocator, arch: std.Target.Cpu.Arch, os: std.Target.Os.Tag) []const u8 {
-    return std.fmt.allocPrint(alloc, "{s}-{s}-gnu", .{@tagName(arch), @tagName(os)}) catch unreachable;
+    return std.fmt.allocPrint(alloc, "{s}-{s}-gnu", .{ @tagName(arch), @tagName(os) }) catch unreachable;
 }
 
 fn getTargetId(alloc: std.mem.Allocator, target: std.zig.CrossTarget) []const u8 {
@@ -305,7 +335,7 @@ fn createGetCross(b: *Builder) !*std.build.LogStep {
     const step = b.addLog("Get Cross Tools\n", .{});
     const stat = try statPathFromRoot(b, "vendor");
     if (stat == .NotExist) {
-        const clone = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://github.com/fubark/zig-v8-vendor.git", "vendor"});
+        const clone = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://github.com/fubark/zig-v8-vendor.git", "vendor" });
         step.step.dependOn(&clone.step);
     }
     return step;
@@ -337,7 +367,7 @@ fn createGetTools(b: *Builder) *std.build.LogStep {
 
     if (UseGclient) {
         // Pull depot_tools for fetch tool.
-        sub_step = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://chromium.googlesource.com/chromium/tools/depot_tools.git", "tools/depot_tools"});
+        sub_step = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://chromium.googlesource.com/chromium/tools/depot_tools.git", "tools/depot_tools" });
         step.step.dependOn(&sub_step.step);
     }
 
@@ -416,13 +446,14 @@ const CopyFileStep = struct {
     }
 };
 
+// TODO: Make this usable from external project.
 fn linkV8(b: *Builder, step: *std.build.LibExeObjStep, use_zig_tc: bool) void {
     const mode = step.build_mode;
     const target = step.target;
 
     const mode_str: []const u8 = if (mode == .Debug) "debug" else "release";
-    const lib: []const u8 = if (target.getOsTag() == .windows) "c_v8.lib" else "libc_v8.a";
-    const lib_path = std.fmt.allocPrint(b.allocator, "./v8-out/{s}/{s}/ninja/obj/zig/{s}", .{
+    const lib: []const u8 = if (target.getOsTag() == .windows and target.getAbi() == .msvc) "c_v8.lib" else "libc_v8.a";
+    const lib_path = std.fmt.allocPrint(b.allocator, "./v8-build/{s}/{s}/ninja/obj/zig/{s}", .{
         getTargetId(b.allocator, target),
         mode_str,
         lib,
@@ -434,16 +465,20 @@ fn linkV8(b: *Builder, step: *std.build.LibExeObjStep, use_zig_tc: bool) void {
             step.linkLibCpp();
         }
         step.linkSystemLibrary("unwind");
-    } else if (builtin.os.tag == .windows) {
-        step.linkSystemLibrary("Dbghelp");
-        step.linkSystemLibrary("Winmm");
-        step.linkSystemLibrary("Advapi32");
+    } else if (target.getOsTag() == .windows) {
+        if (target.getAbi() == .gnu) {
+            step.linkLibCpp();
+        } else {
+            step.linkSystemLibrary("Dbghelp");
+            step.linkSystemLibrary("Winmm");
+            step.linkSystemLibrary("Advapi32");
 
-        // We need libcpmt to statically link with c++ stl for exception_ptr references from V8. 
-        // Zig already adds the SDK path to the linker but doesn't sync it to the internal libs array which linkSystemLibrary checks against.
-        // For now we'll hardcode the MSVC path here.
-        step.addLibPath("C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.29.30133/lib/x64");
-        step.linkSystemLibrary("libcpmt");
+            // We need libcpmt to statically link with c++ stl for exception_ptr references from V8.
+            // Zig already adds the SDK path to the linker but doesn't sync it to the internal libs array which linkSystemLibrary checks against.
+            // For now we'll hardcode the MSVC path here.
+            step.addLibPath("C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.29.30133/lib/x64");
+            step.linkSystemLibrary("libcpmt");
+        }
     }
 }
 
@@ -472,7 +507,7 @@ const DepEntry = struct {
 };
 
 fn getV8Rev(b: *Builder) ![]const u8 {
-    const file = try std.fs.openFileAbsolute(b.pathFromRoot("V8_REVISION"), .{ .read = true, .write = false});
+    const file = try std.fs.openFileAbsolute(b.pathFromRoot("V8_REVISION"), .{ .read = true, .write = false });
     defer file.close();
     return std.mem.trim(u8, try file.readToEndAlloc(b.allocator, 1e9), "\n\r ");
 }
@@ -496,7 +531,7 @@ pub const GetV8SourceStep = struct {
         const val = deps.Object.get(key).?;
 
         const i = std.mem.lastIndexOfScalar(u8, val.String, '@').?;
-        const repo_rev = try self.b.allocator.dupe(u8, val.String[i+1..]);
+        const repo_rev = try self.b.allocator.dupe(u8, val.String[i + 1 ..]);
 
         const repo_url = try std.mem.replaceOwned(u8, self.b.allocator, val.String[0..i], "@chromium_url", "https://chromium.googlesource.com");
         return DepEntry{
@@ -505,7 +540,7 @@ pub const GetV8SourceStep = struct {
             .repo_rev = repo_rev,
         };
     }
-    
+
     fn getDep(self: *Self, deps: json.Value, key: []const u8, local_path: []const u8) !void {
         const dep = try self.parseDep(deps, key);
         defer dep.deinit();
@@ -552,6 +587,8 @@ pub const GetV8SourceStep = struct {
         const stat = try statPathFromRoot(self.b, "v8");
         if (stat == .NotExist) {
             _ = try self.b.execFromStep(&.{ "git", "clone", "--depth=1", "--branch", v8_rev, "https://chromium.googlesource.com/v8/v8.git", "v8" }, &self.step);
+            // Apply patch for v8 root.
+            _ = try self.b.execFromStep(&.{ "git", "apply", "--ignore-space-change", "--ignore-whitespace", "patches/v8.patch", "--directory=v8" }, &self.step);
         }
 
         // Get DEPS in json.
@@ -616,12 +653,12 @@ pub const GetV8SourceStep = struct {
             const grep_arg = try std.fmt.allocPrint(self.b.allocator, "--grep={s}", .{commit_filter});
             const version_info = try self.b.execFromStep(&.{ "git", "-C", "v8/build", "log", "-1", "--format=%H %ct", grep_arg, merge_base_sha }, &self.step);
             const idx = std.mem.indexOfScalar(u8, version_info, ' ').?;
-            const commit_timestamp = version_info[idx+1..];
+            const commit_timestamp = version_info[idx + 1 ..];
 
             // build/timestamp.gni expects the file to be just the unix timestamp.
             const write = std.fs.createFileAbsolute(self.b.pathFromRoot("v8/build/util/LASTCHANGE.committime"), .{ .truncate = true }) catch unreachable;
             defer write.close();
-            write.writeAll(commit_timestamp) catch unreachable; 
+            write.writeAll(commit_timestamp) catch unreachable;
         }
     }
 };
@@ -638,7 +675,7 @@ fn createBuildExeStep(b: *Builder, path: []const u8, target: std.zig.CrossTarget
     step.linkLibC();
     step.addIncludeDir("src");
 
-    const output_dir_rel = std.fmt.allocPrint(b.allocator, "zig-out/{s}", .{ name }) catch unreachable;
+    const output_dir_rel = std.fmt.allocPrint(b.allocator, "zig-out/{s}", .{name}) catch unreachable;
     const output_dir = b.pathFromRoot(output_dir_rel);
     step.setOutputDir(output_dir);
 

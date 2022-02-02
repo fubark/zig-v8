@@ -1,0 +1,259 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 32f7b5c..7d9e1e4 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -1254,7 +1254,7 @@ config("toolchain") {
+     }
+   }
+ 
+-  if (is_win) {
++  if (is_win && !use_zig_tc) {
+     cflags += [
+       "/wd4245",  # Conversion with signed/unsigned mismatch.
+       "/wd4267",  # Conversion with possible loss of data.
+@@ -1276,7 +1276,7 @@ config("toolchain") {
+     ]
+   }
+ 
+-  if (!is_clang && is_win) {
++  if (!is_clang && is_win && !use_zig_tc) {
+     cflags += [
+       "/wd4506",  # Benign "no definition for inline function"
+ 
+diff --git a/src/ast/ast.cc b/src/ast/ast.cc
+index ac89df5..eb125c2 100644
+--- a/src/ast/ast.cc
++++ b/src/ast/ast.cc
+@@ -31,6 +31,10 @@
+ #include "src/strings/string-stream.h"
+ #include "src/zone/zone-list-inl.h"
+ 
++// Turn off mingw defines since we're using them as tokens in the file.
++#pragma push_macro("VOID")
++#undef VOID
++
+ namespace v8 {
+ namespace internal {
+ 
+@@ -1079,5 +1083,7 @@ const char* CallRuntime::debug_name() {
+ #endif  // DEBUG
+ }
+ 
++#pragma pop_macro("VOID")
++
+ }  // namespace internal
+ }  // namespace v8
+diff --git a/src/ast/prettyprinter.cc b/src/ast/prettyprinter.cc
+index c8be8bf..31b1bfb 100644
+--- a/src/ast/prettyprinter.cc
++++ b/src/ast/prettyprinter.cc
+@@ -16,6 +16,10 @@
+ #include "src/regexp/regexp-flags.h"
+ #include "src/strings/string-builder-inl.h"
+ 
++// Turn off mingw defines since we're using them as tokens in the file.
++#pragma push_macro("VOID")
++#undef VOID
++
+ namespace v8 {
+ namespace internal {
+ 
+@@ -1481,5 +1485,7 @@ void AstPrinter::VisitSuperCallReference(SuperCallReference* node) {
+ 
+ #endif  // DEBUG
+ 
++#pragma pop_macro("VOID")
++
+ }  // namespace internal
+ }  // namespace v8
+diff --git a/src/base/bits.h b/src/base/bits.h
+index 5c31add..f601a13 100644
+--- a/src/base/bits.h
++++ b/src/base/bits.h
+@@ -210,7 +210,6 @@ inline uint32_t RoundDownToPowerOfTwo32(uint32_t value) {
+   return result;
+ }
+ 
+-
+ // Precondition: 0 <= shift < 32
+ inline constexpr uint32_t RotateRight32(uint32_t value, uint32_t shift) {
+   return (value >> shift) | (value << ((32 - shift) & 31));
+diff --git a/src/base/platform/platform-win32.cc b/src/base/platform/platform-win32.cc
+index 4292f7e..6138f25 100644
+--- a/src/base/platform/platform-win32.cc
++++ b/src/base/platform/platform-win32.cc
+@@ -77,14 +77,14 @@ inline void MemoryFence() {
+ 
+ #endif  // __MINGW64_VERSION_MAJOR
+ 
+-
++// Already included by mingw
++/*
+ int localtime_s(tm* out_tm, const time_t* time) {
+   tm* posix_local_time_struct = localtime_r(time, out_tm);
+   if (posix_local_time_struct == nullptr) return 1;
+   return 0;
+ }
+ 
+-
+ int fopen_s(FILE** pFile, const char* filename, const char* mode) {
+   *pFile = fopen(filename, mode);
+   return *pFile != nullptr ? 0 : 1;
+@@ -122,6 +122,7 @@ int strncpy_s(char* dest, size_t dest_size, const char* source, size_t count) {
+   *dest = 0;
+   return 0;
+ }
++*/
+ 
+ #endif  // __MINGW32__
+ 
+diff --git a/src/interpreter/bytecode-generator.cc b/src/interpreter/bytecode-generator.cc
+index 63b449c..06a8d61 100644
+--- a/src/interpreter/bytecode-generator.cc
++++ b/src/interpreter/bytecode-generator.cc
+@@ -37,6 +37,10 @@
+ #include "src/parsing/token.h"
+ #include "src/utils/ostreams.h"
+ 
++// Turn off mingw defines since we're using them as tokens in the file.
++#pragma push_macro("VOID")
++#undef VOID
++
+ namespace v8 {
+ namespace internal {
+ namespace interpreter {
+@@ -7271,3 +7275,5 @@ FeedbackSlot BytecodeGenerator::GetDummyCompareICSlot() {
+ }  // namespace interpreter
+ }  // namespace internal
+ }  // namespace v8
++
++#pragma push_macro("VOID")
+diff --git a/src/interpreter/bytecode-generator.h b/src/interpreter/bytecode-generator.h
+index 1c11cbb..5ba70b1 100644
+--- a/src/interpreter/bytecode-generator.h
++++ b/src/interpreter/bytecode-generator.h
+@@ -13,6 +13,10 @@
+ #include "src/objects/feedback-vector.h"
+ #include "src/objects/function-kind.h"
+ 
++// Turn off mingw defines since we're using them as tokens in the file.
++#pragma push_macro("VOID")
++#undef VOID
++
+ namespace v8 {
+ namespace internal {
+ 
+@@ -550,4 +554,6 @@ class BytecodeGenerator final : public AstVisitor<BytecodeGenerator> {
+ }  // namespace internal
+ }  // namespace v8
+ 
++#pragma pop_macro("VOID")
++
+ #endif  // V8_INTERPRETER_BYTECODE_GENERATOR_H_
+diff --git a/src/parsing/keywords-gen.h b/src/parsing/keywords-gen.h
+index 3a8101b..232a16c 100644
+--- a/src/parsing/keywords-gen.h
++++ b/src/parsing/keywords-gen.h
+@@ -10,6 +10,12 @@
+ 
+ #include "src/parsing/token.h"
+ 
++// Turn off mingw defines since we're using them as tokens in the file.
++#pragma push_macro("CONST")
++#pragma push_macro("VOID")
++#undef CONST
++#undef VOID
++
+ namespace v8 {
+ namespace internal {
+ 
+@@ -174,4 +180,7 @@ inline Token::Value PerfectKeywordHash::GetToken(const char* str, int len) {
+ }  // namespace internal
+ }  // namespace v8
+ 
++#pragma pop_macro("VOID")
++#pragma pop_macro("CONST")
++
+ #endif  // V8_PARSING_KEYWORDS_GEN_H_
+diff --git a/src/parsing/parser-base.h b/src/parsing/parser-base.h
+index f15cce5..d023d84 100644
+--- a/src/parsing/parser-base.h
++++ b/src/parsing/parser-base.h
+@@ -31,6 +31,10 @@
+ #include "src/utils/pointer-with-payload.h"
+ #include "src/zone/zone-chunk-list.h"
+ 
++// Turn off mingw defines since we're using them as tokens in the file.
++#pragma push_macro("CONST")
++#undef CONST
++
+ namespace v8 {
+ namespace internal {
+ 
+@@ -6511,4 +6515,6 @@ void ParserBase<Impl>::CheckClassFieldName(IdentifierT name, bool is_static) {
+ }  // namespace internal
+ }  // namespace v8
+ 
++#pragma pop_macro("CONST")
++
+ #endif  // V8_PARSING_PARSER_BASE_H_
+diff --git a/src/parsing/parser.cc b/src/parsing/parser.cc
+index 1531760..1597953 100644
+--- a/src/parsing/parser.cc
++++ b/src/parsing/parser.cc
+@@ -33,6 +33,10 @@
+ #include "src/tracing/trace-event.h"
+ #include "src/zone/zone-list-inl.h"
+ 
++// Turn off mingw defines since we're using them as tokens in the file.
++#pragma push_macro("CONST")
++#undef CONST
++
+ namespace v8 {
+ namespace internal {
+ 
+@@ -3556,3 +3560,5 @@ Statement* Parser::CheckCallable(Variable* var, Expression* error, int pos) {
+ 
+ }  // namespace internal
+ }  // namespace v8
++
++#pragma pop_macro("CONST")
+diff --git a/src/parsing/token.h b/src/parsing/token.h
+index dabbff0..db8f327 100644
+--- a/src/parsing/token.h
++++ b/src/parsing/token.h
+@@ -10,6 +10,12 @@
+ #include "src/base/logging.h"
+ #include "src/common/globals.h"
+ 
++// Turn off mingw defines since we're using them as tokens in the file.
++#pragma push_macro("CONST")
++#pragma push_macro("VOID")
++#undef CONST
++#undef VOID
++
+ namespace v8 {
+ namespace internal {
+ 
+@@ -349,4 +355,7 @@ class V8_EXPORT_PRIVATE Token {
+ }  // namespace internal
+ }  // namespace v8
+ 
++#pragma pop_macro("VOID")
++#pragma pop_macro("CONST")
++
+ #endif  // V8_PARSING_TOKEN_H_
+diff --git a/src/profiler/heap-snapshot-generator.cc b/src/profiler/heap-snapshot-generator.cc
+index c8abf12..6244cc4 100644
+--- a/src/profiler/heap-snapshot-generator.cc
++++ b/src/profiler/heap-snapshot-generator.cc
+@@ -193,7 +193,8 @@ HeapSnapshot::HeapSnapshot(HeapProfiler* profiler, bool global_objects_as_roots,
+   STATIC_ASSERT(kSystemPointerSize != 4 || sizeof(HeapGraphEdge) == 12);
+   STATIC_ASSERT(kSystemPointerSize != 8 || sizeof(HeapGraphEdge) == 24);
+   STATIC_ASSERT(kSystemPointerSize != 4 || sizeof(HeapEntry) == 32);
+-#if V8_CC_MSVC
++// Since clang MINGW will use -mms-bitfields by default, it should have the same struct layout as MSVC.
++#if V8_CC_MSVC || V8_CC_MINGW
+   STATIC_ASSERT(kSystemPointerSize != 8 || sizeof(HeapEntry) == 48);
+ #else   // !V8_CC_MSVC
+   STATIC_ASSERT(kSystemPointerSize != 8 || sizeof(HeapEntry) == 40);

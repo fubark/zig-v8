@@ -9,9 +9,9 @@ Static libs are built and released with [Github Actions](https://github.com/fuba
 | Native | Cross Compile | Target | Demo Binary ([shell.zig](https://github.com/fubark/zig-v8/blob/master/src/shell.zig))* |
 | ------ | ------ | -------- | -------- |
 | ✅ | | Linux x64 | shell - 19 M |
-| ✅ | | Windows x64 | shell.exe - 12 M |
+| ✅ | ✅ | Windows x64 | shell.exe - 14 M |
 | ✅ | | macOS x64 | shell - 24 M |
-| ✅ | ✅ from x64-linux | macOS arm64 | shell - 21 M |
+| ✅ | ✅ | macOS arm64 | shell - 21 M |
 
 \* shell.zig is a JS repl and statically linked with v8. Compiled with -Drelease-safe. The V8 dependency can be further reduced in size if you don't need all the features (eg. disable WASM runtime).
 
@@ -49,7 +49,7 @@ zig build get-tools
 zig build get-v8
 
 # Build, resulting static library should be at:
-# v8-out/{target}/{debug/release}/ninja/obj/zig/libc_v8.a
+# v8-build/{target}/{debug/release}/ninja/obj/zig/libc_v8.a
 # On windows, use msvc: zig build -Drelease-safe -Dtarget=x86_64-windows-msvc
 zig build -Drelease-safe
 ```
@@ -69,8 +69,14 @@ With Zig's toolchain, we can build V8 from libstdc++ that's bundled with zig and
 zig build get-cross
 
 # Resulting static lib will be at:
-# v8-out/aarch64-macos/release/ninja/obj/zig/libc_v8.a
+# v8-build/aarch64-macos/release/ninja/obj/zig/libc_v8.a
 zig build -Drelease-safe -Dtarget=aarch64-macos-gnu -Dzig-toolchain
+```
+
+### Cross compile to Windows with gnu (mingw64)
+Zig comes with mingw64 source and headers so you'll be able to target Windows without MSVC.
+```sh
+zig build -Drelease-safe -Dtarget=x86_64-windows-gnu -Dzig-toolchain
 ```
 
 ## Usage

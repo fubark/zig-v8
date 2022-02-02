@@ -1,6 +1,6 @@
 /zig-cache/
 /tools/ninja_gn_binaries*
-/v8-out/
+/v8-build/
 /gclient/
 /v8/
 /zig-out/
