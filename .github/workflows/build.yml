@@ -2,6 +2,10 @@ name: Build V8
 
 on: [workflow_dispatch, push]
 
+concurrency:
+  group: my-group
+  cancel-in-progress: true
+
 jobs:
   build:
     name: host=${{ matrix.config.host }} target=${{ matrix.config.target }} mode=${{ matrix.config.mode }} tc=${{ matrix.config.toolchain }}
