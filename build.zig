@@ -190,13 +190,13 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
             // Should add target flags that matches: //build/config/compiler:compiler_cpu_abi
             try zig_cc.append("-m64");
             try zig_cxx.append("-m64");
-        } else if (target.getOsTag() == .macos and target.getCpuArch() == .aarch64) {
-            if (builtin.os.tag != .macos) {
+        } else if (target.getOsTag() == .macos) {
+            if (!target.isNative()) {
                 // Cross compiling.
-                try zig_cc.append("-isystem");
-                try zig_cxx.append("-isystem");
                 const sysroot_abs = b.pathFromRoot("./vendor/sysroot/macos-12/usr/include");
+                try zig_cc.append("-isystem");
                 try zig_cc.append(sysroot_abs);
+                try zig_cxx.append("-isystem");
                 try zig_cxx.append(sysroot_abs);
             }
         }
