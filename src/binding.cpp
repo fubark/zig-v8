@@ -547,6 +547,20 @@ bool v8__Value__IsArrayBufferView(const v8::Value& self) { return self.IsArrayBu
 
 bool v8__Value__IsUint8Array(const v8::Value& self) { return self.IsUint8Array(); }
 
+bool v8__Value__IsExternal(const v8::Value& self) { return self.IsExternal(); }
+
+bool v8__Value__IsTrue(const v8::Value& self) { return self.IsTrue(); }
+
+bool v8__Value__IsFalse(const v8::Value& self) { return self.IsFalse(); }
+
+bool v8__Value__IsUndefined(const v8::Value& self) { return self.IsUndefined(); }
+
+bool v8__Value__IsNull(const v8::Value& self) { return self.IsNull(); }
+
+bool v8__Value__IsNullOrUndefined(const v8::Value& self) { return self.IsNullOrUndefined(); }
+
+bool v8__Value__IsNativeError(const v8::Value& self) { return self.IsNativeError(); }
+
 void v8__Value__InstanceOf(
         const v8::Value& self,
         const v8::Context& ctx,
@@ -1025,6 +1039,10 @@ void v8__TryCatch__SetVerbose(
 }
 
 // Message
+
+const v8::String* v8__Message__Get(const v8::Message& self) {
+    return local_to_ptr(self.Get());
+}
 
 const v8::String* v8__Message__GetSourceLine(
         const v8::Message& self,

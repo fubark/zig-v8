@@ -213,6 +213,7 @@ void v8__HandleScope__CONSTRUCT(HandleScope* buf, Isolate* isolate);
 void v8__HandleScope__DESTRUCT(HandleScope* scope);
 
 // Message
+const String* v8__Message__Get(const Message* self);
 const String* v8__Message__GetSourceLine(const Message* self, const Context* context);
 const Value* v8__Message__GetScriptResourceName(const Message* self);
 int v8__Message__GetLineNumber(const Message* self, const Context* context);
@@ -326,6 +327,13 @@ bool v8__Value__IsArray(const Value* self);
 bool v8__Value__IsArrayBuffer(const Value* self);
 bool v8__Value__IsArrayBufferView(const Value* self);
 bool v8__Value__IsUint8Array(const Value* self);
+bool v8__Value__IsExternal(const Value* self);
+bool v8__Value__IsTrue(const Value* self);
+bool v8__Value__IsFalse(const Value* self);
+bool v8__Value__IsUndefined(const Value* self);
+bool v8__Value__IsNull(const Value* self);
+bool v8__Value__IsNullOrUndefined(const Value* self);
+bool v8__Value__IsNativeError(const Value* self);
 void v8__Value__InstanceOf(
     const Value* self,
     const Context* ctx,

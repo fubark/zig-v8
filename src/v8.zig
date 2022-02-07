@@ -1084,6 +1084,12 @@ pub const Message = struct {
 
     handle: *const c.Message,
 
+    pub fn getMessage(self: Self) String {
+        return String{
+            .handle = c.v8__Message__Get(self.handle).?,
+        };
+    }
+
     pub fn getSourceLine(self: Self, ctx: Context) ?String {
         if (c.v8__Message__GetSourceLine(self.handle, ctx.handle)) |string| {
             return String{
@@ -1422,6 +1428,34 @@ pub const Value = struct {
 
     pub fn isUint8Array(self: Self) bool {
         return c.v8__Value__IsUint8Array(self.handle);
+    }
+
+    pub fn isExternal(self: Self) bool {
+        return c.v8__Value__IsExternal(self.handle);
+    }
+
+    pub fn isTrue(self: Self) bool {
+        return c.v8__Value__IsTrue(self.handle);
+    }
+
+    pub fn isFalse(self: Self) bool {
+        return c.v8__Value__IsFalse(self.handle);
+    }
+
+    pub fn isUndefined(self: Self) bool {
+        return c.v8__Value__IsUndefined(self.handle);
+    }
+
+    pub fn isNull(self: Self) bool {
+        return c.v8__Value__IsNull(self.handle);
+    }
+
+    pub fn isNullOrUndefined(self: Self) bool {
+        return c.v8__Value__IsNullOrUndefined(self.handle);
+    }
+
+    pub fn isNativeError(self: Self) bool {
+        return c.v8__Value__IsNativeError(self.handle);
     }
 
     /// Should only be called if you know the underlying type.
