@@ -1141,6 +1141,18 @@ pub const StackTrace = struct {
             .handle = c.v8__StackTrace__GetFrame(self.handle, iso.handle, idx).?,
         };
     }
+
+    pub fn getCurrentStackTrace(iso: Isolate, frame_limit: u32) StackTrace {
+        return .{
+            .handle = c.v8__StackTrace__CurrentStackTrace__STATIC(iso.handle, @intCast(c_int, frame_limit)).?,
+        };
+    }
+
+    pub fn getCurrentScriptNameOrSourceUrl(iso: Isolate) String {
+        return .{
+            .handle = c.v8__StackTrace__CurrentScriptNameOrSourceURL__STATIC(iso.handle).?,
+        };
+    }
 };
 
 pub const StackFrame = struct {

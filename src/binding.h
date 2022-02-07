@@ -248,6 +248,8 @@ const StackFrame* v8__StackTrace__GetFrame(
     const StackTrace* self,
     Isolate* isolate,
     uint32_t idx);
+const StackTrace* v8__StackTrace__CurrentStackTrace__STATIC(Isolate* isolate, int frame_limit);
+const String* v8__StackTrace__CurrentScriptNameOrSourceURL__STATIC(Isolate* isolate);
 
 // StackFrame
 int v8__StackFrame__GetLineNumber(const StackFrame* self);

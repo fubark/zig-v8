@@ -1078,6 +1078,16 @@ const v8::StackFrame* v8__StackTrace__GetFrame(
     return local_to_ptr(self.GetFrame(isolate, idx));
 }
 
+const v8::StackTrace* v8__StackTrace__CurrentStackTrace__STATIC(
+        v8::Isolate* isolate,
+        int frame_limit) {
+    return local_to_ptr(v8::StackTrace::CurrentStackTrace(isolate, frame_limit));
+}
+
+const v8::String* v8__StackTrace__CurrentScriptNameOrSourceURL__STATIC(v8::Isolate* isolate) {
+    return local_to_ptr(v8::StackTrace::CurrentScriptNameOrSourceURL(isolate));
+}
+
 // StackFrame
 
 int v8__StackFrame__GetLineNumber(const v8::StackFrame& self) { return self.GetLineNumber(); }
