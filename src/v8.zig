@@ -240,6 +240,19 @@ pub const Isolate = struct {
         c.v8__Isolate__SetCaptureStackTraceForUncaughtExceptions(self.handle, capture, @intCast(c_int, frame_limit));
     }
 
+    /// This does not terminate the current script immediately. V8 will mark it for termination at a later time. This was intended to end long running loops.
+    pub fn terminateExecution(self: Self) void {
+        c.v8__Isolate__TerminateExecution(self.handle);
+    }
+
+    pub fn isExecutionTerminating(self: Self) bool {
+        return c.v8__Isolate__IsExecutionTerminating(self.handle);
+    }
+
+    pub fn cancelTerminateExecution(self: Self) void {
+        c.v8__Isolate__CancelTerminateExecution(self.handle);
+    }
+
     pub fn initNumber(self: Self, val: f64) Number {
         return Number.init(self, val);
     }

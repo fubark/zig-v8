@@ -231,6 +231,18 @@ void v8__Isolate__SetCaptureStackTraceForUncaughtExceptions(
     isolate->SetCaptureStackTraceForUncaughtExceptions(capture, frame_limit);
 }
 
+void v8__Isolate__TerminateExecution(v8::Isolate* self) {
+    self->TerminateExecution();
+}
+
+bool v8__Isolate__IsExecutionTerminating(v8::Isolate* self) {
+    return self->IsExecutionTerminating();
+}
+
+void v8__Isolate__CancelTerminateExecution(v8::Isolate* self) {
+    self->CancelTerminateExecution();
+}
+
 // ArrayBuffer
 
 v8::ArrayBuffer::Allocator* v8__ArrayBuffer__Allocator__NewDefaultAllocator() {

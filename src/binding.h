@@ -136,6 +136,9 @@ void v8__Isolate__SetCaptureStackTraceForUncaughtExceptions(
     Isolate* isolate,
     bool capture,
     int frame_limit);
+void v8__Isolate__TerminateExecution(Isolate* self);
+bool v8__Isolate__IsExecutionTerminating(Isolate* self);
+void v8__Isolate__CancelTerminateExecution(Isolate* self);
 
 typedef struct StartupData {
     const char* data;
