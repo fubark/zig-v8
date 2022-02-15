@@ -151,10 +151,6 @@ jobs:
       - name: Get V8 Source.
         run: zig build get-v8
 
-      - name: Get Cross.
-        if: env.BUILD_TOOLCHAIN == 'zig'
-        run: zig build get-cross
-
       - name: Build release.
         if: env.BUILD_MODE == 'release' && env.BUILD_TOOLCHAIN == 'v8'
         run: zig build -Drelease-safe ${{ env.ZIG_TARGET_FLAG }}
