@@ -22,9 +22,6 @@ pub fn build(b: *Builder) !void {
     const get_v8 = createGetV8(b);
     b.step("get-v8", "Gets v8 source using gclient.").dependOn(&get_v8.step);
 
-    const get_cross = try createGetCross(b);
-    b.step("get-cross", "Gets sysroot headers for cross compilation to macos.").dependOn(&get_cross.step);
-
     const v8 = try createV8_Build(b, target, mode, use_zig_tc);
     b.step("v8", "Build v8 c binding lib.").dependOn(&v8.step);
 
@@ -193,7 +190,7 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         } else if (target.getOsTag() == .macos) {
             if (!target.isNative()) {
                 // Cross compiling.
-                const sysroot_abs = b.pathFromRoot("./vendor/sysroot/macos-12/usr/include");
+                const sysroot_abs = b.pathFromRoot("./cross-macos/sysroot/macos-12/usr/include");
                 try zig_cc.append("-isystem");
                 try zig_cc.append(sysroot_abs);
                 try zig_cxx.append("-isystem");
@@ -330,16 +327,6 @@ const CheckV8DepsStep = struct {
         }
     }
 };
-
-fn createGetCross(b: *Builder) !*std.build.LogStep {
-    const step = b.addLog("Get Cross Tools\n", .{});
-    const stat = try statPathFromRoot(b, "vendor");
-    if (stat == .NotExist) {
-        const clone = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://github.com/fubark/zig-v8-vendor.git", "vendor" });
-        step.step.dependOn(&clone.step);
-    }
-    return step;
-}
 
 fn createGetV8(b: *Builder) *std.build.LogStep {
     const step = b.addLog("Get V8\n", .{});

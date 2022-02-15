@@ -65,9 +65,6 @@ With Zig's toolchain, we can build V8 from libstdc++ that's bundled with zig and
 ### Linux x64 (Host) to MacOS arm64 (Target)
 ```sh
 # Assumes you've fetched tools and v8 sources. See above build steps.
-# get-cross will fetch sysroot headers for MacOS.
-zig build get-cross
-
 # Resulting static lib will be at:
 # v8-build/aarch64-macos/release/ninja/obj/zig/libc_v8.a
 zig build -Drelease-safe -Dtarget=aarch64-macos-gnu -Dzig-toolchain
