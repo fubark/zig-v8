@@ -955,25 +955,24 @@ void* v8__External__Value(const v8::External& self) { return self.Value(); }
 
 void v8__Persistent__New(
         v8::Isolate* isolate,
-        const v8::Value& value,
-        v8::Persistent<v8::Value>* out) {
-    new (out) v8::Persistent<v8::Value>(isolate, ptr_to_local(&value));
+        // Allow passing in a data pointer which includes values, templates, context, and more.
+        const v8::Data& data,
+        v8::Persistent<v8::Data>* out) {
+    new (out) v8::Persistent<v8::Data>(isolate, ptr_to_local(&data));
 }
 
-void v8__Persistent__Reset(
-        v8::Persistent<v8::Value>* self) {
-    // v8::Persistent by default uses NonCopyablePersistentTraits which will create a bad copy if we accept v8::Persistent<v8::Value> as the arg.
+void v8__Persistent__Reset(v8::Persistent<v8::Data>* self) {
+    // v8::Persistent by default uses NonCopyablePersistentTraits which will create a bad copy if we accept v8::Persistent<v8::Data> as the arg.
     // Instead we operate on its pointer.
     self->Reset();
 }
 
-void v8__Persistent__SetWeak(
-        v8::Persistent<v8::Value>* self) {
+void v8__Persistent__SetWeak(v8::Persistent<v8::Data>* self) {
     self->SetWeak();
 }
 
 void v8__Persistent__SetWeakFinalizer(
-        v8::Persistent<v8::Value>* self,
+        v8::Persistent<v8::Data>* self,
         void* finalizer_ctx,
         v8::WeakCallbackInfo<void>::Callback finalizer_cb,
         v8::WeakCallbackType type) {

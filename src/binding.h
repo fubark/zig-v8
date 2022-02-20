@@ -9,10 +9,14 @@ typedef struct CreateParams CreateParams;
 typedef struct Isolate Isolate;
 typedef struct StackTrace StackTrace;
 typedef struct StackFrame StackFrame;
-typedef struct FunctionTemplate FunctionTemplate;
+typedef struct FunctionTemplate {
+    char padding;
+} FunctionTemplate;
 typedef struct Message Message;
 typedef struct Name Name;
-typedef struct Context Context;
+typedef struct Context {
+    char padding;
+} Context;
 typedef uintptr_t Address;
 // Super type.
 typedef Address Value;
@@ -568,11 +572,11 @@ void* v8__External__Value(
 
 // Persistent
 typedef struct Persistent {
-    uintptr_t val_ptr;
+    uintptr_t data_ptr;
 } Persistent;
 void v8__Persistent__New(
     Isolate* isolate,
-    const Value* value,
+    const Data* data,
     Persistent* out);
 void v8__Persistent__Reset(
     Persistent* self);
@@ -598,7 +602,9 @@ void* v8__WeakCallbackInfo__GetParameter(
     const WeakCallbackInfo* self);
 
 // ObjectTemplate
-typedef struct ObjectTemplate ObjectTemplate;
+typedef struct ObjectTemplate {
+    char padding;
+} ObjectTemplate;
 ObjectTemplate* v8__ObjectTemplate__New__DEFAULT(
     Isolate* isolate);
 ObjectTemplate* v8__ObjectTemplate__New(

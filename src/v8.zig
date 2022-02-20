@@ -59,6 +59,8 @@ pub const FunctionCallback = c.FunctionCallback;
 pub const AccessorNameGetterCallback = c.AccessorNameGetterCallback;
 pub const AccessorNameSetterCallback = c.AccessorNameSetterCallback;
 
+pub const CreateParams = c.CreateParams;
+
 pub const Name = c.Name;
 
 pub const SharedPtr = c.SharedPtr;
@@ -703,12 +705,12 @@ pub fn Persistent(comptime T: type) type {
         /// A new value is created that references the original value.
         /// A Persistent handle is just a pointer just like any other value handles,
         /// but when creating and operating on it, an indirect pointer is used to represent a c.Persistent struct (v8::Persistent<v8::Value> in C++).
-        pub fn init(isolate: Isolate, value: T) Self {
-            var handle: *c.Value = undefined;
-            c.v8__Persistent__New(isolate.handle, getValueHandle(value), @ptrCast(*c.Persistent, &handle));
+        pub fn init(isolate: Isolate, data: T) Self {
+            var handle: *c.Data = undefined;
+            c.v8__Persistent__New(isolate.handle, getDataHandle(data), @ptrCast(*c.Persistent, &handle));
             return .{
                 .inner = .{
-                    .handle = @ptrCast(@TypeOf(value.handle), handle),
+                    .handle = ptrCastAlign(@TypeOf(data.handle), handle),
                 },
             };
         }
@@ -1042,6 +1044,7 @@ inline fn getValueHandle(val: anytype) *const c.Value {
         Array => val.handle,
         Uint8Array => val.handle,
         StackTrace => val.handle,
+        ObjectTemplate => val.handle,
         Persistent(Object) => val.inner.handle,
         Persistent(Value) => val.inner.handle,
         Persistent(String) => val.inner.handle,
@@ -1075,6 +1078,11 @@ inline fn getDataHandle(val: anytype) *const c.Data {
         FunctionTemplate => val.handle,
         ObjectTemplate => val.handle,
         Integer => val.handle,
+        Function => val.handle,
+        Context => val.handle,
+        Object => val.handle,
+        Value => val.handle,
+        PromiseResolver => val.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Data", .{@typeName(@TypeOf(val))})),
     });
 }
@@ -1701,3 +1709,12 @@ pub const Uint8Array = struct {
         };
     }
 };
+
+inline fn ptrCastAlign(comptime Ptr: type, ptr: anytype) Ptr {
+    const alignment = @typeInfo(Ptr).Pointer.alignment;
+    if (alignment == 0) {
+        return @ptrCast(Ptr, ptr);
+    } else {
+        return @ptrCast(Ptr, @alignCast(alignment, ptr));
+    }
+}
