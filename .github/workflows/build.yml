@@ -101,9 +101,9 @@ jobs:
           path: |-
             ~/.cache/zig
           key:
-            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-zig
+            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-zig2
           restore-keys:
-            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-zig
+            c_v8-${{ env.BUILD_TARGET }}-${{ env.BUILD_MODE }}-zig2
 
       - name: Cache.
         if: env.BUILD_TOOLCHAIN == 'v8'
