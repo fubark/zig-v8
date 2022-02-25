@@ -41,10 +41,10 @@ test {
     const source = v8.String.initUtf8(isolate, "'Hello' + ', World! 🍏🍓' + Math.sin(Math.PI/2)");
 
     // Compile the source code.
-    const script = v8.Script.compile(context, source, null).?;
+    const script = try v8.Script.compile(context, source, null);
 
     // Run the script to get the result.
-    const value = script.run(context).?;
+    const value = try script.run(context);
 
     // Convert the result to an UTF8 string and print it.
     const res = valueToRawUtf8Alloc(t.allocator, isolate, context, value);

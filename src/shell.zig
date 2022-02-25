@@ -120,26 +120,26 @@ pub fn executeString(alloc: std.mem.Allocator, isolate: v8.Isolate, src: []const
     try_catch.init(isolate);
     defer try_catch.deinit();
 
-    var origin = v8.ScriptOrigin.initDefault(isolate, src_origin.handle);
+    var origin = v8.ScriptOrigin.initDefault(isolate, src_origin.toValue());
 
     var context = isolate.getCurrentContext();
 
     const js_src = v8.String.initUtf8(isolate, src);
 
-    if (v8.Script.compile(context, js_src, origin)) |script| {
-        if (script.run(context)) |script_res| {
-            result.* = .{
-                .alloc = alloc,
-                .result = valueToUtf8Alloc(alloc, isolate, context, script_res),
-                .err = null,
-                .success = true,
-            };
-        } else {
-            setResultError(alloc, isolate, try_catch, result);
-        }
-    } else {
+    const script = v8.Script.compile(context, js_src, origin) catch {
         setResultError(alloc, isolate, try_catch, result);
-    }
+        return;
+    };
+    const script_res = script.run(context) catch {
+        setResultError(alloc, isolate, try_catch, result);
+        return;
+    };
+    result.* = .{
+        .alloc = alloc,
+        .result = valueToUtf8Alloc(alloc, isolate, context, script_res),
+        .err = null,
+        .success = true,
+    };
 }
 
 fn setResultError(alloc: std.mem.Allocator, isolate: v8.Isolate, try_catch: v8.TryCatch, result: *ExecuteResult) void {
@@ -177,8 +177,8 @@ pub fn getTryCatchErrorString(alloc: std.mem.Allocator, isolate: v8.Isolate, try
         writer.writeAll("\n") catch unreachable;
 
         // Print wavy underline.
-        const col_start = message.getStartColumn();
-        const col_end = message.getEndColumn();
+        const col_start = message.getStartColumn().?;
+        const col_end = message.getEndColumn().?;
 
         var i: u32 = 0;
         while (i < col_start) : (i += 1) {

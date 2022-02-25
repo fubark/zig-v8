@@ -340,6 +340,19 @@ const v8::Object* v8__Context__Global(
     return local_to_ptr(ptr_to_local(&self)->Global());
 }
 
+const v8::Value* v8__Context__GetEmbedderData(
+        const v8::Context& self,
+        int idx) {
+    return local_to_ptr(ptr_to_local(&self)->GetEmbedderData(idx));
+}
+
+void v8__Context__SetEmbedderData(
+        const v8::Context& self,
+        int idx,
+        const v8::Value& val) {
+    ptr_to_local(&self)->SetEmbedderData(idx, ptr_to_local(&val));
+}
+
 // ScriptOrigin
 
 void v8__ScriptOrigin__CONSTRUCT(
@@ -347,6 +360,26 @@ void v8__ScriptOrigin__CONSTRUCT(
         v8::Isolate* isolate,
         const v8::Value& resource_name) {
     new (buf) v8::ScriptOrigin(isolate, ptr_to_local(&resource_name));
+}
+
+void v8__ScriptOrigin__CONSTRUCT2(
+        v8::ScriptOrigin* buf,
+        v8::Isolate* isolate,
+        const v8::Value& resource_name,
+        int resource_line_offset,
+        int resource_column_offset,
+        bool resource_is_shared_cross_origin,
+        int script_id,
+        const v8::Value& source_map_url,
+        bool resource_is_opaque,
+        bool is_wasm,
+        bool is_module,
+        const v8::Data& host_defined_options) {
+    new (buf) v8::ScriptOrigin(
+        isolate, ptr_to_local(&resource_name),
+        resource_line_offset, resource_column_offset, resource_is_shared_cross_origin, script_id,
+        ptr_to_local(&source_map_url), resource_is_opaque, is_wasm, is_module, ptr_to_local(&host_defined_options)
+    );
 }
 
 // Script
@@ -364,6 +397,115 @@ v8::Value* v8__Script__Run(
         const v8::Script& script,
         const v8::Context& context) {
     return maybe_local_to_ptr(ptr_to_local(&script)->Run(ptr_to_local(&context)));
+}
+
+// ScriptCompiler
+
+size_t v8__ScriptCompiler__Source__SIZEOF() {
+    return sizeof(v8::ScriptCompiler::Source);
+}
+
+void v8__ScriptCompiler__Source__CONSTRUCT(
+        const v8::String& src,
+        v8::ScriptCompiler::CachedData* cached_data,
+        v8::ScriptCompiler::Source* out) {
+    new (out) v8::ScriptCompiler::Source(ptr_to_local(&src), cached_data);
+}
+
+void v8__ScriptCompiler__Source__CONSTRUCT2(
+        const v8::String& src,
+        const v8::ScriptOrigin* origin,
+        v8::ScriptCompiler::CachedData* cached_data,
+        v8::ScriptCompiler::Source* out) {
+    new (out) v8::ScriptCompiler::Source(ptr_to_local(&src), *origin, cached_data);
+}
+
+void v8__ScriptCompiler__Source__DESTRUCT(v8::ScriptCompiler::Source* self) {
+    self->~Source();
+}
+
+size_t v8__ScriptCompiler__CachedData__SIZEOF() {
+    return sizeof(v8::ScriptCompiler::CachedData);
+}
+
+v8::ScriptCompiler::CachedData* v8__ScriptCompiler__CachedData__NEW(
+        const uint8_t* data,
+        int length) {
+    return new v8::ScriptCompiler::CachedData(
+        data, length, v8::ScriptCompiler::CachedData::BufferNotOwned
+    );
+}
+
+void v8__ScriptCompiler__CachedData__DELETE(v8::ScriptCompiler::CachedData* self) {
+    delete self;
+}
+
+const v8::Module* v8__ScriptCompiler__CompileModule(
+        v8::Isolate* isolate,
+        v8::ScriptCompiler::Source* source,
+        v8::ScriptCompiler::CompileOptions options,
+        v8::ScriptCompiler::NoCacheReason reason) {
+    v8::MaybeLocal<v8::Module> maybe_local = v8::ScriptCompiler::CompileModule(isolate, source, options, reason);
+    return maybe_local_to_ptr(maybe_local);
+}
+
+// Module
+
+v8::Module::Status v8__Module__GetStatus(const v8::Module& self) {
+    return self.GetStatus();
+}
+
+const v8::Value* v8__Module__GetException(const v8::Module& self) {
+    return local_to_ptr(self.GetException());
+}
+
+const v8::FixedArray* v8__Module__GetModuleRequests(const v8::Module& self) {
+    return local_to_ptr(self.GetModuleRequests());
+}
+
+void v8__Module__InstantiateModule(
+        const v8::Module& self,
+        const v8::Context& ctx,
+        v8::Module::ResolveModuleCallback cb,
+        v8::Maybe<bool>* out) {
+    *out = ptr_to_local(&self)->InstantiateModule(ptr_to_local(&ctx), cb);
+}
+
+const v8::Value* v8__Module__Evaluate(
+        const v8::Module& self,
+        const v8::Context& ctx) {
+    return maybe_local_to_ptr(ptr_to_local(&self)->Evaluate(ptr_to_local(&ctx)));
+}
+
+int v8__Module__GetIdentityHash(const v8::Module& self) {
+    return self.GetIdentityHash();
+}
+
+int v8__Module__ScriptId(const v8::Module& self) {
+    return self.ScriptId();
+}
+
+// ModuleRequest
+
+const v8::String* v8__ModuleRequest__GetSpecifier(const v8::ModuleRequest& self) {
+    return local_to_ptr(self.GetSpecifier());
+}
+
+int v8__ModuleRequest__GetSourceOffset(const v8::ModuleRequest& self) {
+    return self.GetSourceOffset();
+}
+
+// FixedArray
+
+int v8__FixedArray__Length(const v8::FixedArray& self) {
+    return self.Length();
+}
+
+const v8::Data* v8__FixedArray__Get(
+        const v8::FixedArray& self,
+        const v8::Context& ctx,
+        int idx) {
+    return local_to_ptr(ptr_to_local(&self)->Get(ptr_to_local(&ctx), idx));
 }
 
 // String
@@ -998,6 +1140,10 @@ const v8::Value* v8__Exception__Error(
     return local_to_ptr(v8::Exception::Error(ptr_to_local(&message)));
 }
 
+const v8::StackTrace* v8__Exception__GetStackTrace(const v8::Value& exception) {
+    return local_to_ptr(v8::Exception::GetStackTrace(ptr_to_local(&exception)));
+}
+
 // TryCatch
 
 size_t v8__TryCatch__SIZEOF() {
@@ -1035,6 +1181,10 @@ void v8__TryCatch__SetVerbose(
         v8::TryCatch* self,
         bool value) {
     self->SetVerbose(value);
+}
+
+const v8::Value* v8__TryCatch__ReThrow(v8::TryCatch* self) {
+    return local_to_ptr(self->ReThrow());
 }
 
 // Message

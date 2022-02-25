@@ -52,7 +52,11 @@ pub const C_PromiseRejectMessage = c.PromiseRejectMessage;
 
 pub const C_Message = c.Message;
 pub const C_Value = c.Value;
-pub const C_Address = c.Address;
+pub const C_Context = c.Context;
+pub const C_Data = c.Data;
+pub const C_FixedArray = c.FixedArray;
+pub const C_Module = c.Module;
+pub const C_InternalAddress = c.InternalAddress;
 
 pub const MessageCallback = c.MessageCallback;
 pub const FunctionCallback = c.FunctionCallback;
@@ -87,6 +91,8 @@ pub const Platform = struct {
         assert(@sizeOf(c.CreateParams) == c.v8__Isolate__CreateParams__SIZEOF());
         assert(@sizeOf(c.TryCatch) == c.v8__TryCatch__SIZEOF());
         assert(@sizeOf(c.PromiseRejectMessage) == c.v8__PromiseRejectMessage__SIZEOF());
+        assert(@sizeOf(c.ScriptCompilerSource) == c.v8__ScriptCompiler__Source__SIZEOF());
+        assert(@sizeOf(c.ScriptCompilerCachedData) == c.v8__ScriptCompiler__CachedData__SIZEOF());
         return .{
             .handle = c.v8__Platform__NewDefaultPlatform(@intCast(c_int, thread_pool_size), if (idle_task_support) 1 else 0).?,
         };
@@ -150,6 +156,12 @@ pub const Exception = struct {
     pub fn initError(msg: String) Value {
         return .{
             .handle = c.v8__Exception__Error(msg.handle).?,
+        };
+    }
+
+    pub fn getStackTrace(exception: Value) StackTrace {
+        return .{
+            .handle = c.v8__Exception__GetStackTrace(exception.handle).?,
         };
     }
 };
@@ -406,14 +418,26 @@ pub const Context = struct {
 
     /// [V8]
     /// Returns the isolate associated with a current context.
-    pub fn getIsolate(self: Self) *Isolate {
-        return c.v8__Context__GetIsolate(self);
+    pub fn getIsolate(self: Self) Isolate {
+        return Isolate{
+            .handle = c.v8__Context__GetIsolate(self.handle).?,
+        };
     }
 
     pub fn getGlobal(self: Self) Object {
         return .{
             .handle = c.v8__Context__Global(self.handle).?,
         };
+    }
+
+    pub fn getEmbedderData(self: Self, idx: u32) Value {
+        return .{
+            .handle = c.v8__Context__GetEmbedderData(self.handle, @intCast(c_int, idx)).?,
+        };
+    }
+
+    pub fn setEmbedderData(self: Self, idx: u32, val: anytype) void {
+        c.v8__Context__SetEmbedderData(self.handle, @intCast(c_int, idx), getValueHandle(val));
     }
 };
 
@@ -710,7 +734,7 @@ pub fn Persistent(comptime T: type) type {
             c.v8__Persistent__New(isolate.handle, getDataHandle(data), @ptrCast(*c.Persistent, &handle));
             return .{
                 .inner = .{
-                    .handle = ptrCastAlign(@TypeOf(data.handle), handle),
+                    .handle = @ptrCast(@TypeOf(data.handle), handle),
                 },
             };
         }
@@ -915,8 +939,8 @@ pub const Object = struct {
         };
     }
 
-    pub fn getIdentityHash(self: Self) c_int {
-        return c.v8__Object__GetIdentityHash(self.handle);
+    pub fn getIdentityHash(self: Self) u32 {
+        return @bitCast(u32, c.v8__Object__GetIdentityHash(self.handle));
     }
 
     pub fn has(self: Self, ctx: Context, key: Value) bool {
@@ -1106,21 +1130,31 @@ pub const Message = struct {
         } else return null;
     }
 
-    pub fn getScriptResourceName(self: Self) *const c.Value {
-        return c.v8__Message__GetScriptResourceName(self.handle).?;
+    pub fn getScriptResourceName(self: Self) Value {
+        return .{
+            .handle = c.v8__Message__GetScriptResourceName(self.handle).?,
+        };
     }
 
     pub fn getLineNumber(self: Self, ctx: Context) ?u32 {
-        const num = c.v8__Message__GetLineNumber(self.handle, ctx.handle);
-        return if (num >= 0) @intCast(u32, num) else null;
+        const res = c.v8__Message__GetLineNumber(self.handle, ctx.handle);
+        if (res == -1) {
+            return @intCast(u32, res);
+        } else return null;
     }
 
-    pub fn getStartColumn(self: Self) u32 {
-        return @intCast(u32, c.v8__Message__GetStartColumn(self.handle));
+    pub fn getStartColumn(self: Self) ?u32 {
+        const res = c.v8__Message__GetStartColumn(self.handle);
+        if (res != -1) {
+            return @intCast(u32, res);
+        } else return null;
     }
 
-    pub fn getEndColumn(self: Self) u32 {
-        return @intCast(u32, c.v8__Message__GetEndColumn(self.handle));
+    pub fn getEndColumn(self: Self) ?u32 {
+        const res = c.v8__Message__GetEndColumn(self.handle);
+        if (res != -1) {
+            return @intCast(u32, res);
+        } else return null;
     }
 
     /// [v8] Exception stack trace. By default stack traces are not captured for
@@ -1266,6 +1300,12 @@ pub const TryCatch = struct {
     pub fn setVerbose(self: *Self, verbose: bool) void {
         c.v8__TryCatch__SetVerbose(&self.inner, verbose);
     }
+
+    pub fn rethrow(self: *Self) Value {
+        return .{
+            .handle = c.v8__TryCatch__ReThrow(&self.inner).?,
+        };
+    }
 };
 
 pub const ScriptOrigin = struct {
@@ -1273,10 +1313,42 @@ pub const ScriptOrigin = struct {
 
     inner: c.ScriptOrigin,
 
-    // ScriptOrigin is not wrapped in a v8::Local so we don't care if it points to another copy.
-    pub fn initDefault(isolate: Isolate, resource_name: *const c.Value) Self {
+    pub fn initDefault(isolate: Isolate, resource_name: Value) Self {
         var inner: c.ScriptOrigin = undefined;
-        c.v8__ScriptOrigin__CONSTRUCT(&inner, isolate.handle, resource_name);
+        c.v8__ScriptOrigin__CONSTRUCT(&inner, isolate.handle, resource_name.handle);
+        return .{
+            .inner = inner,
+        };
+    }
+
+    pub fn init(
+        isolate: Isolate,
+        resource_name: Value,
+        resource_line_offset: i32,
+        resource_column_offset: i32,
+        resource_is_shared_cross_origin: bool,
+        script_id: i32,
+        source_map_url: ?Value,
+        resource_is_opaque: bool,
+        is_wasm: bool,
+        is_module: bool,
+        host_defined_options: ?Data,
+    ) Self {
+        var inner: c.ScriptOrigin = undefined;
+        c.v8__ScriptOrigin__CONSTRUCT2(
+            &inner,
+            isolate.handle,
+            resource_name.handle,
+            resource_line_offset,
+            resource_column_offset,
+            resource_is_shared_cross_origin,
+            script_id,
+            if (source_map_url != null) source_map_url.?.handle else null,
+            resource_is_opaque,
+            is_wasm,
+            is_module,
+            if (host_defined_options != null) host_defined_options.?.handle else null,
+        );
         return .{
             .inner = inner,
         };
@@ -1325,27 +1397,213 @@ pub const String = struct {
     }
 };
 
+pub const ScriptCompilerSource = struct {
+    const Self = @This();
+
+    inner: c.ScriptCompilerSource,
+
+    pub fn init(self: *Self, src: String, mb_origin: ?ScriptOrigin, cached_data: ?ScriptCompilerCachedData) void {
+        const cached_data_ptr = if (cached_data != null) cached_data.?.handle else null;
+        if (mb_origin) |origin| {
+            c.v8__ScriptCompiler__Source__CONSTRUCT2(src.handle, &origin.inner, cached_data_ptr, &self.inner);
+        } else {
+            c.v8__ScriptCompiler__Source__CONSTRUCT(src.handle, cached_data_ptr, &self.inner);
+        }
+    }
+
+    pub fn deinit(self: *Self) void {
+        c.v8__ScriptCompiler__Source__DESTRUCT(&self.inner);
+    }
+};
+
+pub const ScriptCompilerCachedData = struct {
+    const Self = @This();
+
+    handle: *c.ScriptCompilerCachedData,
+
+    pub fn init(data: []const u8) Self {
+        return .{
+            .handle = c.v8__ScriptCompiler__CachedData__NEW(data.ptr, @intCast(c_int, data.len)).?,
+        };
+    }
+
+    pub fn deinit(self: Self) void {
+        c.v8__ScriptCompiler__CachedData__DELETE(self.handle);
+    }
+};
+
+pub const ScriptCompiler = struct {
+
+    const CompileOptions = enum(u32) {
+        kNoCompileOptions = c.kNoCompileOptions,
+        kConsumeCodeCache = c.kConsumeCodeCache,
+        kEagerCompile = c.kEagerCompile,
+    };
+
+    const NoCacheReason = enum(u32) {
+        kNoCacheNoReason = c.kNoCacheNoReason,
+        kNoCacheBecauseCachingDisabled = c.kNoCacheBecauseCachingDisabled,
+        kNoCacheBecauseNoResource = c.kNoCacheBecauseNoResource,
+        kNoCacheBecauseInlineScript = c.kNoCacheBecauseInlineScript,
+        kNoCacheBecauseModule = c.kNoCacheBecauseModule,
+        kNoCacheBecauseStreamingSource = c.kNoCacheBecauseStreamingSource,
+        kNoCacheBecauseInspector = c.kNoCacheBecauseInspector,
+        kNoCacheBecauseScriptTooSmall = c.kNoCacheBecauseScriptTooSmall,
+        kNoCacheBecauseCacheTooCold = c.kNoCacheBecauseCacheTooCold,
+        kNoCacheBecauseV8Extension = c.kNoCacheBecauseV8Extension,
+        kNoCacheBecauseExtensionModule = c.kNoCacheBecauseExtensionModule,
+        kNoCacheBecausePacScript = c.kNoCacheBecausePacScript,
+        kNoCacheBecauseInDocumentWrite = c.kNoCacheBecauseInDocumentWrite,
+        kNoCacheBecauseResourceWithNoCacheHandler = c.kNoCacheBecauseResourceWithNoCacheHandler,
+        kNoCacheBecauseDeferredProduceCodeCache = c.kNoCacheBecauseDeferredProduceCodeCache,
+    };
+
+    /// [v8]
+    /// Compile an ES module, returning a Module that encapsulates the compiled code.
+    /// Corresponds to the ParseModule abstract operation in the ECMAScript specification.
+    pub fn compileModule(iso: Isolate, src: *ScriptCompilerSource, options: ScriptCompiler.CompileOptions, reason: ScriptCompiler.NoCacheReason) !Module {
+        const mb_res = c.v8__ScriptCompiler__CompileModule(
+            iso.handle, 
+            &src.inner,
+            @enumToInt(options),
+            @enumToInt(reason),
+        );
+        if (mb_res) |res| {
+            return Module{
+                .handle = res,
+            };
+        } else return error.JsException;
+    }
+};
+
 pub const Script = struct {
     const Self = @This();
 
     handle: *const c.Script,
 
-    /// Null indicates there was an compile error.
-    pub fn compile(ctx: Context, src: String, origin: ?ScriptOrigin) ?Self {
+    /// [v8]
+    /// A shorthand for ScriptCompiler::Compile().
+    pub fn compile(ctx: Context, src: String, origin: ?ScriptOrigin) !Self {
         if (c.v8__Script__Compile(ctx.handle, src.handle, if (origin != null) &origin.?.inner else null)) |handle| {
             return Self{
                 .handle = handle,
             };
-        } else return null;
+        } else return error.JsException;
     }
 
-    /// Null indicates a runtime error.
-    pub fn run(self: Self, ctx: Context) ?Value {
+    pub fn run(self: Self, ctx: Context) !Value {
         if (c.v8__Script__Run(self.handle, ctx.handle)) |value| {
             return Value{
                 .handle = value,
             };
-        } else return null;
+        } else return error.JsException;
+    }
+};
+
+pub const Module = struct {
+    const Self = @This();
+
+    const Status = enum(u32) {
+        kUninstantiated = c.kUninstantiated,
+        kInstantiating = c.kInstantiating,
+        kInstantiated = c.kInstantiated,
+        kEvaluating = c.kEvaluating,
+        kEvaluated = c.kEvaluated,
+        kErrored = c.kErrored,
+    };
+
+    handle: *const c.Module,
+
+    pub fn getStatus(self: Self) Status {
+        return @intToEnum(Status, c.v8__Module__GetStatus(self.handle));
+    }
+
+    pub fn getException(self: Self) Value {
+        return .{
+            .handle = c.v8__Module__GetException(self.handle).?,
+        };
+    }
+
+    pub fn getModuleRequests(self: Self) FixedArray {
+        return .{
+            .handle = c.v8__Module__GetModuleRequests(self.handle).?,
+        };
+    }
+
+    /// [v8]
+    /// Instantiates the module and its dependencies.
+    ///
+    /// Returns an empty Maybe<bool> if an exception occurred during
+    /// instantiation. (In the case where the callback throws an exception, that
+    /// exception is propagated.)
+    pub fn instantiate(self: Self, ctx: Context, cb: c.ResolveModuleCallback) !bool {
+        var out: c.MaybeBool = undefined;
+        c.v8__Module__InstantiateModule(self.handle, ctx.handle, cb, &out);
+        if (out.has_value == 1) {
+            return out.value == 1;
+        } else return error.JsException;
+    }
+
+    /// Evaulates the module, assumes module has been instantiated.
+    /// [v8]
+    /// Evaluates the module and its dependencies.
+    ///
+    /// If status is kInstantiated, run the module's code and return a Promise
+    /// object. On success, set status to kEvaluated and resolve the Promise with
+    /// the completion value; on failure, set status to kErrored and reject the
+    /// Promise with the error.
+    ///
+    /// If IsGraphAsync() is false, the returned Promise is settled.
+    pub fn evaluate(self: Self, ctx: Context) !Value {
+        if (c.v8__Module__Evaluate(self.handle, ctx.handle)) |res| {
+            return Value{
+                .handle = res,
+            };
+        } else return error.JsException;
+    }
+
+    pub fn getIdentityHash(self: Self) u32 {
+        return @bitCast(u32, c.v8__Module__GetIdentityHash(self.handle));
+    }
+
+    pub fn getScriptId(self: Self) u32 {
+        return @intCast(u32, c.v8__Module__ScriptId(self.handle));
+    }
+};
+
+pub const ModuleRequest = struct {
+    const Self = @This();
+
+    handle: *const c.ModuleRequest,
+
+    /// Returns the specifier of the import inside the double quotes
+    pub fn getSpecifier(self: Self) String {
+        return .{
+            .handle = c.v8__ModuleRequest__GetSpecifier(self.handle).?,
+        };
+    }
+
+    /// Returns the offset from the start of the source code.
+    pub fn getSourceOffset(self: Self) u32 {
+        return @intCast(u32, c.v8__ModuleRequest__GetSourceOffset(self.handle));
+    }
+};
+
+pub const Data = struct {
+    const Self = @This();
+
+    handle: *const c.Data,
+
+    /// Should only be called if you know the underlying type.
+    pub fn castTo(self: Self, comptime T: type) T {
+        switch (T) {
+            ModuleRequest => {
+                return .{
+                    .handle = self.handle,
+                };
+            },
+            else => unreachable,
+        }
     }
 };
 
@@ -1695,6 +1953,22 @@ pub const ArrayBufferView = struct {
             },
             else => unreachable,
         }
+    }
+};
+
+pub const FixedArray = struct {
+    const Self = @This();
+
+    handle: *const c.FixedArray,
+
+    pub fn length(self: Self) u32 {
+        return @intCast(u32, c.v8__FixedArray__Length(self.handle));
+    }
+
+    pub fn get(self: Self, ctx: Context, idx: u32) Data {
+        return .{
+            .handle = c.v8__FixedArray__Get(self.handle, ctx.handle, @intCast(c_int, idx)).?,
+        };
     }
 };
 

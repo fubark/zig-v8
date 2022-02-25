@@ -3,23 +3,23 @@
 
 typedef char bool;
 typedef uintptr_t usize;
+typedef struct Data Data;
 typedef struct ArrayBuffer ArrayBuffer;
 typedef struct ArrayBufferAllocator ArrayBufferAllocator;
 typedef struct CreateParams CreateParams;
 typedef struct Isolate Isolate;
 typedef struct StackTrace StackTrace;
 typedef struct StackFrame StackFrame;
-typedef struct FunctionTemplate {
-    char padding;
-} FunctionTemplate;
+typedef struct FixedArray FixedArray;
+typedef struct Module Module;
+typedef struct FunctionTemplate FunctionTemplate;
 typedef struct Message Message;
 typedef struct Name Name;
-typedef struct Context {
-    char padding;
-} Context;
-typedef uintptr_t Address;
+typedef struct Context Context;
+// Internally, all Value types have a base InternalAddress struct.
+typedef uintptr_t InternalAddress;
 // Super type.
-typedef Address Value;
+typedef Data Value;
 typedef Value Object;
 typedef Value String;
 typedef Value Function;
@@ -33,6 +33,28 @@ typedef Value External;
 typedef Value Boolean;
 typedef Value Promise;
 typedef Value PromiseResolver;
+typedef enum CompileOptions {
+    kNoCompileOptions = 0,
+    kConsumeCodeCache = 1,
+    kEagerCompile = 2,
+} CompileOptions;
+typedef enum NoCacheReason {
+    kNoCacheNoReason = 0,
+    kNoCacheBecauseCachingDisabled,
+    kNoCacheBecauseNoResource,
+    kNoCacheBecauseInlineScript,
+    kNoCacheBecauseModule,
+    kNoCacheBecauseStreamingSource,
+    kNoCacheBecauseInspector,
+    kNoCacheBecauseScriptTooSmall,
+    kNoCacheBecauseCacheTooCold,
+    kNoCacheBecauseV8Extension,
+    kNoCacheBecauseExtensionModule,
+    kNoCacheBecausePacScript,
+    kNoCacheBecauseInDocumentWrite,
+    kNoCacheBecauseResourceWithNoCacheHandler,
+    kNoCacheBecauseDeferredProduceCodeCache
+} NoCacheReason;
 typedef enum PromiseRejectEvent {
     kPromiseRejectWithNoHandler = 0,
     kPromiseHandlerAddedAfterReject = 1,
@@ -177,6 +199,13 @@ typedef struct CreateParams {
 usize v8__Isolate__CreateParams__SIZEOF();
 void v8__Isolate__CreateParams__CONSTRUCT(CreateParams* buf);
 
+// FixedArray
+int v8__FixedArray__Length(const FixedArray* self);
+const Data* v8__FixedArray__Get(
+    const FixedArray* self,
+    const Context* ctx,
+    int idx);
+
 // ArrayBuffer
 typedef void (*PromiseRejectCallback)(PromiseRejectMessage);
 typedef void (*BackingStoreDeleterCallback)(void* data, size_t len, void* deleter_data);
@@ -210,8 +239,8 @@ const ArrayBuffer* v8__ArrayBufferView__Buffer(const ArrayBufferView* self);
 typedef struct HandleScope {
     // internal vars.
     Isolate* isolate_;
-    Address* prev_next_;
-    Address* prev_limit_;
+    InternalAddress* prev_next_;
+    InternalAddress* prev_limit_;
 } HandleScope;
 void v8__HandleScope__CONSTRUCT(HandleScope* buf, Isolate* isolate);
 void v8__HandleScope__DESTRUCT(HandleScope* scope);
@@ -245,6 +274,7 @@ bool v8__TryCatch__IsVerbose(const TryCatch* self);
 void v8__TryCatch__SetVerbose(
     TryCatch* self, 
     bool value);
+const Value* v8__TryCatch__ReThrow(TryCatch* self);
 
 // StackTrace
 int v8__StackTrace__GetFrameCount(const StackTrace* self);
@@ -275,6 +305,13 @@ void v8__Context__Enter(const Context* context);
 void v8__Context__Exit(const Context* context);
 Isolate* v8__Context__GetIsolate(const Context* context);
 const Object* v8__Context__Global(const Context* self);
+const Value* v8__Context__GetEmbedderData(
+    const Context* self,
+    int idx);
+void v8__Context__SetEmbedderData(
+    const Context* self,
+    int idx,
+    const Value* val);
 
 // Boolean
 const Boolean* v8__Boolean__New(
@@ -440,6 +477,7 @@ const Array* v8__Object__GetPropertyNames(
 
 // Exception
 const Value* v8__Exception__Error(const String* message);
+const StackTrace* v8__Exception__GetStackTrace(const Value* exception);
 
 // Number
 const Number* v8__Number__New(
@@ -457,7 +495,6 @@ int64_t v8__Integer__Value(const Integer* self);
 
 // Template
 typedef struct Template Template;
-typedef struct Data Data;
 void v8__Template__Set(
     const Template* self,
     const Name* key,
@@ -602,9 +639,7 @@ void* v8__WeakCallbackInfo__GetParameter(
     const WeakCallbackInfo* self);
 
 // ObjectTemplate
-typedef struct ObjectTemplate {
-    char padding;
-} ObjectTemplate;
+typedef struct ObjectTemplate ObjectTemplate;
 ObjectTemplate* v8__ObjectTemplate__New__DEFAULT(
     Isolate* isolate);
 ObjectTemplate* v8__ObjectTemplate__New(
@@ -641,8 +676,101 @@ typedef struct ScriptOrigin {
     void* host_defined_options_;
 } ScriptOrigin;
 void v8__ScriptOrigin__CONSTRUCT(ScriptOrigin* buf, Isolate* isolate, const Value* resource_name);
+void v8__ScriptOrigin__CONSTRUCT2(
+    ScriptOrigin* buf,
+    Isolate* isolate,
+    const Value* resource_name,
+    int resource_line_offset,
+    int resource_column_offset,
+    bool resource_is_shared_cross_origin,
+    int script_id,
+    const Value* source_map_url,
+    bool resource_is_opaque,
+    bool is_wasm,
+    bool is_module,
+    const Data* host_defined_options
+);
+
+// ScriptCompiler
+typedef struct ScriptCompilerSource {
+    String* source_string;
+
+    // Origin information
+    Value* resource_name;
+    int resource_line_offset;
+    int resource_column_offset;
+    ScriptOriginOptions resource_options;
+    Value* source_map_url;
+    Data* host_defined_options;
+
+    // Cached data from previous compilation (if a kConsume*Cache flag is
+    // set), or hold newly generated cache data (kProduce*Cache flags) are
+    // set when calling a compile method.
+    UniquePtr cached_data;
+    UniquePtr consume_cache_task;
+} ScriptCompilerSource;
+typedef enum BufferPolicy {
+    BufferNotOwned,
+    BufferOwned
+} BufferPolicy;
+typedef struct ScriptCompilerCachedData {
+    const uint8_t* data;
+    int length;
+    bool rejected;
+    BufferPolicy buffer_policy;
+} ScriptCompilerCachedData;
+size_t v8__ScriptCompiler__Source__SIZEOF();
+void v8__ScriptCompiler__Source__CONSTRUCT(
+    const String* src,
+    ScriptCompilerCachedData* cached_data,
+    ScriptCompilerSource* out);
+void v8__ScriptCompiler__Source__CONSTRUCT2(
+    const String* src,
+    const ScriptOrigin* origin,
+    ScriptCompilerCachedData* cached_data,
+    ScriptCompilerSource* out);
+void v8__ScriptCompiler__Source__DESTRUCT(ScriptCompilerSource* self);
+size_t v8__ScriptCompiler__CachedData__SIZEOF();
+ScriptCompilerCachedData* v8__ScriptCompiler__CachedData__NEW(
+    const uint8_t* data,
+    int length);
+void v8__ScriptCompiler__CachedData__DELETE(ScriptCompilerCachedData* self);
+const Module* v8__ScriptCompiler__CompileModule(
+    Isolate* isolate,
+    ScriptCompilerSource* source,
+    CompileOptions options,
+    NoCacheReason reason);
 
 // Script
 typedef struct Script Script;
 Script* v8__Script__Compile(const Context* context, const String* src, const ScriptOrigin* origin);
 Value* v8__Script__Run(const Script* script, const Context* context);
+
+// Module
+typedef enum ModuleStatus {
+    kUninstantiated,
+    kInstantiating,
+    kInstantiated,
+    kEvaluating,
+    kEvaluated,
+    kErrored
+} ModuleStatus;
+ModuleStatus v8__Module__GetStatus(const Module* self);
+const Value* v8__Module__GetException(const Module* self);
+const FixedArray* v8__Module__GetModuleRequests(const Module* self);
+typedef const Module* (*ResolveModuleCallback)(
+    const Context* ctx, const String* spec,
+    const FixedArray* import_assertions, const Module* referrer);
+void v8__Module__InstantiateModule(
+    const Module* self,
+    const Context* ctx,
+    ResolveModuleCallback cb,
+    MaybeBool* out);
+const Value* v8__Module__Evaluate(const Module* self, const Context* ctx);
+int v8__Module__GetIdentityHash(const Module* self);
+int v8__Module__ScriptId(const Module* self);
+
+// ModuleRequest
+typedef Data ModuleRequest;
+const String* v8__ModuleRequest__GetSpecifier(const ModuleRequest* self);
+int v8__ModuleRequest__GetSourceOffset(const ModuleRequest* self);
