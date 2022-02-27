@@ -93,6 +93,7 @@ pub const Platform = struct {
         assert(@sizeOf(c.PromiseRejectMessage) == c.v8__PromiseRejectMessage__SIZEOF());
         assert(@sizeOf(c.ScriptCompilerSource) == c.v8__ScriptCompiler__Source__SIZEOF());
         assert(@sizeOf(c.ScriptCompilerCachedData) == c.v8__ScriptCompiler__CachedData__SIZEOF());
+        assert(@sizeOf(c.HeapStatistics) == c.v8__HeapStatistics__SIZEOF());
         return .{
             .handle = c.v8__Platform__NewDefaultPlatform(@intCast(c_int, thread_pool_size), if (idle_task_support) 1 else 0).?,
         };
@@ -267,6 +268,16 @@ pub const Isolate = struct {
         c.v8__Isolate__CancelTerminateExecution(self.handle);
     }
 
+    pub fn lowMemoryNotification(self: Self) void {
+        c.v8__Isolate__LowMemoryNotification(self.handle);
+    }
+
+    pub fn getHeapStatistics(self: Self) c.HeapStatistics {
+        var res: c.HeapStatistics = undefined;
+        c.v8__Isolate__GetHeapStatistics(self.handle, &res);
+        return res;
+    }
+
     pub fn initNumber(self: Self, val: f64) Number {
         return Number.init(self, val);
     }
@@ -347,7 +358,7 @@ pub const Isolate = struct {
         return Context.init(self, global_tmpl, global_obj);
     }
 
-    pub fn initExternal(self: Self, val: *anyopaque) External {
+    pub fn initExternal(self: Self, val: ?*anyopaque) External {
         return External.init(self, val);
     }
 };
@@ -478,7 +489,7 @@ pub const PropertyCallbackInfo = struct {
         };
     }
 
-    pub fn getExternalValue(self: Self) *anyopaque {
+    pub fn getExternalValue(self: Self) ?*anyopaque {
         return self.getData().castTo(External).get();
     }
 };
@@ -502,6 +513,10 @@ pub const WeakCallbackInfo = struct {
 
     pub fn getParameter(self: Self) *anyopaque {
         return c.v8__WeakCallbackInfo__GetParameter(self.handle).?;
+    }
+
+    pub fn getInternalField(self: Self, idx: u32) ?*anyopaque {
+        return c.v8__WeakCallbackInfo__GetInternalField(self.handle, @intCast(c_int, idx));
     }
 };
 
@@ -580,7 +595,7 @@ pub const FunctionCallbackInfo = struct {
         };
     }
 
-    pub fn getExternalValue(self: Self) *anyopaque {
+    pub fn getExternalValue(self: Self) ?*anyopaque {
         return self.getData().castTo(External).get();
     }
 };
@@ -747,8 +762,11 @@ pub fn Persistent(comptime T: type) type {
             c.v8__Persistent__SetWeak(@ptrCast(*c.Persistent, &self.inner.handle));
         }
 
-        pub fn setWeakFinalizer(self: *Self, finalizer_ctx: *anyopaque, cb: c.WeakCallback, cb_type: c.WeakCallbackType) void {
-            c.v8__Persistent__SetWeakFinalizer(@ptrCast(*c.Persistent, &self.inner.handle), finalizer_ctx, cb, cb_type);
+        /// An external pointer can be set when cb_type is kParameter or kInternalFields.
+        /// When cb_type is kInternalFields, the object fields are expected to be set with setAlignedPointerInInternalField.
+        /// The pointer value must be a multiple of 2 due to how v8 encodes the pointers.
+        pub fn setWeakFinalizer(self: *Self, finalizer_ctx: *anyopaque, cb: c.WeakCallback, cb_type: WeakCallbackType) void {
+            c.v8__Persistent__SetWeakFinalizer(@ptrCast(*c.Persistent, &self.inner.handle), finalizer_ctx, cb, @enumToInt(cb_type));
         }
 
         /// Should only be called if you know the underlying type is a v8.Function.
@@ -786,10 +804,10 @@ pub fn Persistent(comptime T: type) type {
 /// will pass a void* parameter back, but is invoked before the object is
 /// actually collected, so it can be resurrected. In the last case, it is not
 /// possible to request a second pass callback.
-pub const WeakCallbackType = struct {
-    pub const kParameter = c.kParameter;
-    pub const kInternalFields = c.kInternalFields;
-    pub const kFinalizer = c.kFinalizer;
+pub const WeakCallbackType = enum(u32) {
+    kParameter = c.kParameter,
+    kInternalFields = c.kInternalFields,
+    kFinalizer = c.kFinalizer,
 };
 
 pub const ObjectTemplate = struct {
@@ -893,6 +911,10 @@ pub const Object = struct {
         };
     }
 
+    pub fn setAlignedPointerInInternalField(self: Self, idx: u32, ptr: ?*anyopaque) void {
+        c.v8__Object__SetAlignedPointerInInternalField(self.handle, @intCast(c_int, idx), ptr);
+    }
+
     // Returns true on success, false on fail.
     pub fn setValue(self: Self, ctx: Context, key: anytype, value: anytype) bool {
         var out: c.MaybeBool = undefined;
@@ -977,14 +999,14 @@ pub const External = struct {
 
     handle: *const c.External,
 
-    pub fn init(isolate: Isolate, val: *anyopaque) Self {
+    pub fn init(isolate: Isolate, val: ?*anyopaque) Self {
         return .{
             .handle = c.v8__External__New(isolate.handle, val).?,
         };
     }
 
-    pub fn get(self: Self) *anyopaque {
-        return c.v8__External__Value(self.handle).?;
+    pub fn get(self: Self) ?*anyopaque {
+        return c.v8__External__Value(self.handle);
     }
 
     pub fn toValue(self: Self) Value {

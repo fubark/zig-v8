@@ -243,6 +243,20 @@ void v8__Isolate__CancelTerminateExecution(v8::Isolate* self) {
     self->CancelTerminateExecution();
 }
 
+void v8__Isolate__LowMemoryNotification(v8::Isolate* self) {
+    self->LowMemoryNotification();
+}
+
+void v8__Isolate__GetHeapStatistics(
+        v8::Isolate* self,
+        v8::HeapStatistics* stats) {
+    self->GetHeapStatistics(stats);
+}
+
+size_t v8__HeapStatistics__SIZEOF() {
+    return sizeof(v8::HeapStatistics);
+}
+
 // ArrayBuffer
 
 v8::ArrayBuffer::Allocator* v8__ArrayBuffer__Allocator__NewDefaultAllocator() {
@@ -899,6 +913,13 @@ const v8::Array* v8__Object__GetPropertyNames(
     );
 }
 
+void v8__Object__SetAlignedPointerInInternalField(
+        const v8::Object* self,
+        int idx,
+        void* ptr) {
+    ptr_to_local(self)->SetAlignedPointerInInternalField(idx, ptr);
+}
+
 // FunctionCallbackInfo
 
 v8::Isolate* v8__FunctionCallbackInfo__GetIsolate(
@@ -1131,6 +1152,12 @@ v8::Isolate* v8__WeakCallbackInfo__GetIsolate(
 void* v8__WeakCallbackInfo__GetParameter(
         const v8::WeakCallbackInfo<void>& self) {
     return self.GetParameter();
+}
+
+void* v8__WeakCallbackInfo__GetInternalField(
+        const v8::WeakCallbackInfo<void>& self,
+        int idx) {
+    return self.GetInternalField(idx);
 }
 
 // Exception

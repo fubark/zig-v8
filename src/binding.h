@@ -165,6 +165,27 @@ void v8__Isolate__SetCaptureStackTraceForUncaughtExceptions(
 void v8__Isolate__TerminateExecution(Isolate* self);
 bool v8__Isolate__IsExecutionTerminating(Isolate* self);
 void v8__Isolate__CancelTerminateExecution(Isolate* self);
+void v8__Isolate__LowMemoryNotification(Isolate* self);
+typedef struct HeapStatistics {
+    size_t total_heap_size;
+    size_t total_heap_size_executable;
+    size_t total_physical_size;
+    size_t total_available_size;
+    size_t used_heap_size;
+    size_t heap_size_limit;
+    size_t malloced_memory;
+    size_t external_memory;
+    size_t peak_malloced_memory;
+    bool does_zap_garbage;
+    size_t number_of_native_contexts;
+    size_t number_of_detached_contexts;
+    size_t total_global_handles_size;
+    size_t used_global_handles_size;
+} HeapStatistics;
+void v8__Isolate__GetHeapStatistics(
+    Isolate* self,
+    HeapStatistics* stats);
+usize v8__HeapStatistics__SIZEOF();
 
 typedef struct StartupData {
     const char* data;
@@ -474,6 +495,10 @@ const Array* v8__Object__GetOwnPropertyNames(
 const Array* v8__Object__GetPropertyNames(
     const Object* self,
     const Context* ctx);
+void v8__Object__SetAlignedPointerInInternalField(
+    const Object* self,
+    int idx,
+    void* ptr);
 
 // Exception
 const Value* v8__Exception__Error(const String* message);
@@ -633,10 +658,11 @@ void v8__Persistent__SetWeakFinalizer(
     WeakCallbackType type);
 
 // WeakCallbackInfo
-Isolate* v8__WeakCallbackInfo__GetIsolate(
-    const WeakCallbackInfo* self);
-void* v8__WeakCallbackInfo__GetParameter(
-    const WeakCallbackInfo* self);
+Isolate* v8__WeakCallbackInfo__GetIsolate(const WeakCallbackInfo* self);
+void* v8__WeakCallbackInfo__GetParameter(const WeakCallbackInfo* self);
+void* v8__WeakCallbackInfo__GetInternalField(
+    const WeakCallbackInfo* self,
+    int idx);
 
 // ObjectTemplate
 typedef struct ObjectTemplate ObjectTemplate;
