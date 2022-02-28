@@ -580,6 +580,32 @@ const v8::Integer* v8__Integer__NewFromUnsigned(
 
 int64_t v8__Integer__Value(const v8::Integer& self) { return self.Value(); }
 
+// BigInt
+
+const v8::BigInt* v8__BigInt__New(
+        v8::Isolate* iso, 
+        int64_t val) {
+    return local_to_ptr(v8::BigInt::New(iso, val));
+}
+
+const v8::BigInt* v8__BigInt__NewFromUnsigned(
+        v8::Isolate* iso,
+        uint64_t val) {
+    return local_to_ptr(v8::BigInt::NewFromUnsigned(iso, val));
+}
+
+uint64_t v8__BigInt__Uint64Value(
+        const v8::BigInt& self,
+        bool* lossless) {
+    return ptr_to_local(&self)->Uint64Value(lossless);
+}
+
+int64_t v8__BigInt__Int64Value(
+        const v8::BigInt& self,
+        bool* lossless) {
+    return ptr_to_local(&self)->Int64Value(lossless);
+}
+
 // Promise
 
 const v8::Promise::Resolver* v8__Promise__Resolver__New(
@@ -716,6 +742,14 @@ bool v8__Value__IsNull(const v8::Value& self) { return self.IsNull(); }
 bool v8__Value__IsNullOrUndefined(const v8::Value& self) { return self.IsNullOrUndefined(); }
 
 bool v8__Value__IsNativeError(const v8::Value& self) { return self.IsNativeError(); }
+
+bool v8__Value__IsBigInt(const v8::Value& self) {
+    return self.IsBigInt();
+}
+
+bool v8__Value__IsBigIntObject(const v8::Value& self) {
+    return self.IsBigIntObject();
+}
 
 void v8__Value__InstanceOf(
         const v8::Value& self,

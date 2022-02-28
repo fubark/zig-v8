@@ -298,6 +298,14 @@ pub const Isolate = struct {
         return Integer.initU32(self, val);
     }
 
+    pub fn initBigIntI64(self: Self, val: i64) BigInt {
+        return BigInt.initI64(self, val);
+    }
+
+    pub fn initBigIntU64(self: Self, val: u64) BigInt {
+        return BigInt.initU64(self, val);
+    }
+
     pub fn initStringUtf8(self: Self, val: []const u8) String {
         return String.initUtf8(self, val);
     }
@@ -1070,6 +1078,32 @@ pub const Integer = struct {
     }
 };
 
+pub const BigInt = struct {
+    const Self = @This();
+
+    handle: *const c.Integer,
+
+    pub fn initI64(iso: Isolate, val: i64) Self {
+        return .{
+            .handle = c.v8__BigInt__New(iso.handle, val).?,
+        };
+    }
+
+    pub fn initU64(iso: Isolate, val: u64) Self {
+        return .{
+            .handle = c.v8__BigInt__NewFromUnsigned(iso.handle, val).?,
+        };
+    }
+
+    pub fn getUint64(self: Self) u64 {
+        return c.v8__BigInt__Uint64Value(self.handle, null);
+    }
+
+    pub fn getInt64(self: Self) i64 {
+        return c.v8__BigInt__Int64Value(self.handle, null);
+    }
+};
+
 pub inline fn getValue(val: anytype) Value {
     return .{
         .handle = getValueHandle(val),
@@ -1634,9 +1668,9 @@ pub const Value = struct {
 
     handle: *const c.Value,
 
-    pub fn toString(self: Self, ctx: Context) String {
-        return .{
-            .handle = c.v8__Value__ToString(self.handle, ctx.handle).?,
+    pub fn toString(self: Self, ctx: Context) !String {
+        return String{
+            .handle = c.v8__Value__ToString(self.handle, ctx.handle) orelse return error.JsException,
         };
     }
 
@@ -1644,62 +1678,52 @@ pub const Value = struct {
         return c.v8__Value__BooleanValue(self.handle, isolate.handle);
     }
 
-    pub fn toI32(self: Self, ctx: Context) i32 {
+    pub fn toI32(self: Self, ctx: Context) !i32 {
         var out: c.MaybeI32 = undefined;
         c.v8__Value__Int32Value(self.handle, ctx.handle, &out);
         if (out.has_value == 1) {
             return out.value;
-        } else {
-            return 0;
-        }
+        } else return error.JsException;
     }
 
-    pub fn toU32(self: Self, ctx: Context) u32 {
+    pub fn toU32(self: Self, ctx: Context) !u32 {
         var out: c.MaybeU32 = undefined;
         c.v8__Value__Uint32Value(self.handle, ctx.handle, &out);
         if (out.has_value == 1) {
             return out.value;
-        } else {
-            return 0;
-        }
+        } else return error.JsException;
     }
 
-    pub fn toF32(self: Self, ctx: Context) f32 {
+    pub fn toF32(self: Self, ctx: Context) !f32 {
         var out: c.MaybeF64 = undefined;
         c.v8__Value__NumberValue(self.handle, ctx.handle, &out);
         if (out.has_value == 1) {
             return @floatCast(f32, out.value);
-        } else {
-            return 0;
-        }
+        } else return error.JsException;
     }
 
-    pub fn toF64(self: Self, ctx: Context) f64 {
+    pub fn toF64(self: Self, ctx: Context) !f64 {
         var out: c.MaybeF64 = undefined;
         c.v8__Value__NumberValue(self.handle, ctx.handle, &out);
         if (out.has_value == 1) {
             return out.value;
-        } else {
-            return 0;
-        }
+        } else return error.JsException;
     }
 
-    pub fn bitCastToU64(self: Self, ctx: Context) u64 {
+    pub fn bitCastToU64(self: Self, ctx: Context) !u64 {
         var out: c.MaybeF64 = undefined;
         c.v8__Value__NumberValue(self.handle, ctx.handle, &out);
         if (out.has_value == 1) {
             return @bitCast(u64, out.value);
-        } else {
-            return 0;
-        }
+        } else return error.JsException;
     }
 
-    pub fn instanceOf(self: Self, ctx: Context, obj: Object) bool {
+    pub fn instanceOf(self: Self, ctx: Context, obj: Object) !bool {
         var out: c.MaybeBool = undefined;
         c.v8__Value__InstanceOf(self.handle, ctx.handle, obj.handle, &out);
         if (out.has_value == 1) {
             return out.value == 1;
-        } else return false;
+        } else return error.JsException;
     }
 
     pub fn isObject(self: Self) bool {
@@ -1756,6 +1780,14 @@ pub const Value = struct {
 
     pub fn isNativeError(self: Self) bool {
         return c.v8__Value__IsNativeError(self.handle);
+    }
+
+    pub fn isBigInt(self: Self) bool {
+        return c.v8__Value__IsBigInt(self.handle);
+    }
+
+    pub fn isBigIntObject(self: Self) bool {
+        return c.v8__Value__IsBigIntObject(self.handle);
     }
 
     /// Should only be called if you know the underlying type.

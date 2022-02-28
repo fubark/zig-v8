@@ -26,6 +26,7 @@ typedef Value Function;
 typedef Value Number;
 typedef Value Primitive;
 typedef Value Integer;
+typedef Value BigInt;
 typedef Value Array;
 typedef Value Uint8Array;
 typedef Value ArrayBufferView;
@@ -398,6 +399,8 @@ bool v8__Value__IsUndefined(const Value* self);
 bool v8__Value__IsNull(const Value* self);
 bool v8__Value__IsNullOrUndefined(const Value* self);
 bool v8__Value__IsNativeError(const Value* self);
+bool v8__Value__IsBigInt(const Value* self);
+bool v8__Value__IsBigIntObject(const Value* self);
 void v8__Value__InstanceOf(
     const Value* self,
     const Context* ctx,
@@ -517,6 +520,20 @@ const Integer* v8__Integer__NewFromUnsigned(
     Isolate* isolate,
     uint32_t value);
 int64_t v8__Integer__Value(const Integer* self);
+
+// BigInt
+const BigInt* v8__BigInt__New(
+    Isolate* iso, 
+    int64_t val);
+const BigInt* v8__BigInt__NewFromUnsigned(
+    Isolate* iso,
+    uint64_t val);
+uint64_t v8__BigInt__Uint64Value(
+    const BigInt* self,
+    bool* lossless);
+int64_t v8__BigInt__Int64Value(
+    const BigInt* self,
+    bool* lossless);
 
 // Template
 typedef struct Template Template;

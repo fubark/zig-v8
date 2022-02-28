@@ -153,7 +153,7 @@ fn setResultError(alloc: std.mem.Allocator, isolate: v8.Isolate, try_catch: v8.T
 
 pub fn valueToUtf8Alloc(alloc: std.mem.Allocator, isolate: v8.Isolate, ctx: v8.Context, any_value: anytype) []const u8 {
     const val = v8.getValue(any_value);
-    const str = val.toString(ctx);
+    const str = val.toString(ctx) catch unreachable;
     const len = str.lenUtf8(isolate);
     const buf = alloc.alloc(u8, len) catch unreachable;
     _ = str.writeUtf8(isolate, buf);
@@ -204,7 +204,7 @@ pub fn getTryCatchErrorString(alloc: std.mem.Allocator, isolate: v8.Isolate, try
 
 pub fn appendValueAsUtf8(arr: *std.ArrayList(u8), isolate: v8.Isolate, ctx: v8.Context, any_value: anytype) []const u8 {
     const val = v8.getValue(any_value);
-    const str = val.toString(ctx);
+    const str = val.toString(ctx) catch unreachable;
     const len = str.lenUtf8(isolate);
     const start = arr.items.len;
     arr.resize(start + len) catch unreachable;
