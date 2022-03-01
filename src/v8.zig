@@ -1674,6 +1674,12 @@ pub const Value = struct {
         };
     }
 
+    pub fn toDetailString(self: Self, ctx: Context) !String {
+        return String{
+            .handle = c.v8__Value__ToDetailString(self.handle, ctx.handle) orelse return error.JsException,
+        };
+    }
+
     pub fn toBool(self: Self, isolate: Isolate) bool {
         return c.v8__Value__BooleanValue(self.handle, isolate.handle);
     }
@@ -1728,6 +1734,10 @@ pub const Value = struct {
 
     pub fn isObject(self: Self) bool {
         return c.v8__Value__IsObject(self.handle);
+    }
+
+    pub fn isString(self: Self) bool {
+        return c.v8__Value__IsString(self.handle);
     }
 
     pub fn isFunction(self: Self) bool {
@@ -2034,6 +2044,21 @@ pub const Uint8Array = struct {
     pub fn init(buf: ArrayBuffer, offset: usize, len: usize) Self {
         return .{
             .handle = c.v8__Uint8Array__New(buf.handle, offset, len).?,
+        };
+    }
+};
+
+pub const Json = struct {
+
+    pub fn parse(ctx: Context, json: String) !Value {
+        return Value{
+            .handle = c.v8__JSON__Parse(ctx.handle, json.handle) orelse return error.JsException,
+        };
+    }
+
+    pub fn stringify(ctx: Context, val: Value, gap: ?String) !String {
+        return String{
+            .handle = c.v8__JSON__Stringify(ctx.handle, val.handle, if (gap != null) gap.?.handle else null) orelse return error.JsException,
         };
     }
 };

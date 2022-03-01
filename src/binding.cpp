@@ -684,8 +684,15 @@ void v8__Promise__MarkAsHandled(const v8::Promise& self) {
 // Value
 
 const v8::String* v8__Value__ToString(
-        const v8::Value& val, const v8::Context& ctx) {
-    return maybe_local_to_ptr(val.ToString(ptr_to_local(&ctx)));
+        const v8::Value& self,
+        const v8::Context& ctx) {
+    return maybe_local_to_ptr(self.ToString(ptr_to_local(&ctx)));
+}
+
+const v8::String* v8__Value__ToDetailString(
+        const v8::Value& self,
+        const v8::Context& ctx) {
+    return maybe_local_to_ptr(self.ToDetailString(ptr_to_local(&ctx)));
 }
 
 bool v8__Value__BooleanValue(
@@ -720,6 +727,8 @@ bool v8__Value__IsFunction(const v8::Value& self) { return self.IsFunction(); }
 bool v8__Value__IsAsyncFunction(const v8::Value& self) { return self.IsAsyncFunction(); }
 
 bool v8__Value__IsObject(const v8::Value& self) { return self.IsObject(); }
+
+bool v8__Value__IsString(const v8::Value& self) { return self.IsString(); }
 
 bool v8__Value__IsArray(const v8::Value& self) { return self.IsArray(); }
 
@@ -1325,5 +1334,22 @@ bool v8__StackFrame__IsConstructor(const v8::StackFrame& self) { return self.IsC
 bool v8__StackFrame__IsWasm(const v8::StackFrame& self) { return self.IsWasm(); }
 
 bool v8__StackFrame__IsUserJavaScript(const v8::StackFrame& self) { return self.IsUserJavaScript(); }
+
+// JSON
+
+const v8::Value* v8__JSON__Parse(
+        const v8::Context& ctx,
+        const v8::String& json) {
+    return maybe_local_to_ptr(
+        v8::JSON::Parse(ptr_to_local(&ctx), ptr_to_local(&json)));
+}
+
+const v8::String* v8__JSON__Stringify(
+        const v8::Context& ctx,
+        const v8::Value& val,
+        const v8::String& gap) {
+    return maybe_local_to_ptr(
+        v8::JSON::Stringify(ptr_to_local(&ctx), ptr_to_local(&val), ptr_to_local(&gap)));
+}
 
 }

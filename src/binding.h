@@ -369,7 +369,12 @@ int v8__String__WriteUtf8(const String* str, Isolate* isolate, const char* buf, 
 int v8__String__Utf8Length(const String* str, Isolate* isolate);
 
 // Value
-String* v8__Value__ToString(const Value* val, const Context* ctx);
+String* v8__Value__ToString(
+    const Value* self,
+    const Context* ctx);
+const String* v8__Value__ToDetailString(
+    const Value* self,
+    const Context* ctx);
 bool v8__Value__BooleanValue(
     const Value* self,
     Isolate* isolate);
@@ -388,6 +393,7 @@ void v8__Value__NumberValue(
 bool v8__Value__IsFunction(const Value* self);
 bool v8__Value__IsAsyncFunction(const Value* self);
 bool v8__Value__IsObject(const Value* self);
+bool v8__Value__IsString(const Value* self);
 bool v8__Value__IsArray(const Value* self);
 bool v8__Value__IsArrayBuffer(const Value* self);
 bool v8__Value__IsArrayBufferView(const Value* self);
@@ -817,3 +823,12 @@ int v8__Module__ScriptId(const Module* self);
 typedef Data ModuleRequest;
 const String* v8__ModuleRequest__GetSpecifier(const ModuleRequest* self);
 int v8__ModuleRequest__GetSourceOffset(const ModuleRequest* self);
+
+// JSON
+const Value* v8__JSON__Parse(
+    const Context* ctx,
+    const String* json);
+const String* v8__JSON__Stringify(
+    const Context* ctx,
+    const Value* val,
+    const String* gap);
