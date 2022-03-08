@@ -1211,7 +1211,7 @@ pub const Message = struct {
 
     pub fn getLineNumber(self: Self, ctx: Context) ?u32 {
         const res = c.v8__Message__GetLineNumber(self.handle, ctx.handle);
-        if (res == -1) {
+        if (res != -1) {
             return @intCast(u32, res);
         } else return null;
     }
