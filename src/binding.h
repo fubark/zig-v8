@@ -128,7 +128,7 @@ const Uint8Array* v8__Uint8Array__New(
 void v8__V8__InitializePlatform(Platform* platform);
 void v8__V8__Initialize();
 int v8__V8__Dispose();
-void v8__V8__ShutdownPlatform();
+void v8__V8__DisposePlatform();
 const char* v8__V8__GetVersion();
 
 // Microtask

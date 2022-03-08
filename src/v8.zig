@@ -123,20 +123,37 @@ pub fn getVersion() []const u8 {
     return str[0..idx];
 }
 
+/// [v8]
+/// Sets the v8::Platform to use. This should be invoked before V8 is
+/// initialized.
 pub fn initV8Platform(platform: Platform) void {
     c.v8__V8__InitializePlatform(platform.handle);
 }
 
+/// [v8]
+/// Initializes V8. This function needs to be called before the first Isolate
+/// is created. It always returns true.
 pub fn initV8() void {
     c.v8__V8__Initialize();
 }
 
+/// [v8]
+/// Releases any resources used by v8 and stops any utility thread
+/// that may be running.  Note that disposing v8 is permanent, it
+/// cannot be reinitialized.
+///
+/// It should generally not be necessary to dispose v8 before exiting
+/// a process, this should happen automatically.  It is only necessary
+/// to use if the process needs the resources taken up by v8.
 pub fn deinitV8() bool {
     return c.v8__V8__Dispose() == 1;
 }
 
+/// [v8]
+/// Clears all references to the v8::Platform. This should be invoked after
+/// V8 was disposed.
 pub fn deinitV8Platform() void {
-    c.v8__V8__ShutdownPlatform();
+    c.v8__V8__DisposePlatform();
 }
 
 pub fn initCreateParams() c.CreateParams {

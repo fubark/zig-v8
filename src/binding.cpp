@@ -157,7 +157,7 @@ void v8__V8__Initialize() { v8::V8::Initialize(); }
 
 int v8__V8__Dispose() { return v8::V8::Dispose(); }
 
-void v8__V8__ShutdownPlatform() { v8::V8::ShutdownPlatform(); }
+void v8__V8__DisposePlatform() { v8::V8::DisposePlatform(); }
 
 // Isolate
 
