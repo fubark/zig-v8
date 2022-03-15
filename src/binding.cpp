@@ -3,6 +3,7 @@
 #include <cassert>
 #include "include/libplatform/libplatform.h"
 #include "include/v8.h"
+#include "src/api/api.h"
 
 template <class T, class... Args>
 class Wrapper {
@@ -681,6 +682,10 @@ void v8__Promise__MarkAsHandled(const v8::Promise& self) {
     ptr_to_local(&self)->MarkAsHandled();
 }
 
+const v8::Value* v8__Promise__Result(const v8::Promise& self) {
+    return local_to_ptr(ptr_to_local(&self)->Result());
+}
+
 // Value
 
 const v8::String* v8__Value__ToString(
@@ -1147,6 +1152,16 @@ const v8::Object* v8__Function__NewInstance(
     );
 }
 
+const v8::Value* v8__Function__GetName(const v8::Function& self) {
+    return local_to_ptr(self.GetName());
+}
+
+void v8__Function__SetName(
+        const v8::Function& self,
+        const v8::String& name) {
+    return ptr_to_local(&self)->SetName(ptr_to_local(&name));
+}
+
 // External
 
 const v8::External* v8__External__New(
@@ -1205,13 +1220,18 @@ void* v8__WeakCallbackInfo__GetInternalField(
 
 // Exception
 
-const v8::Value* v8__Exception__Error(
-        const v8::String& message) {
+const v8::Value* v8__Exception__Error(const v8::String& message) {
     return local_to_ptr(v8::Exception::Error(ptr_to_local(&message)));
 }
 
 const v8::StackTrace* v8__Exception__GetStackTrace(const v8::Value& exception) {
     return local_to_ptr(v8::Exception::GetStackTrace(ptr_to_local(&exception)));
+}
+
+const v8::Message* v8__Exception__CreateMessage(
+        v8::Isolate* isolate,
+        const v8::Value& exception) {
+    return local_to_ptr(v8::Exception::CreateMessage(isolate, ptr_to_local(&exception)));
 }
 
 // TryCatch

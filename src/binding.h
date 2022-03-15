@@ -444,6 +444,7 @@ const Promise* v8__Promise__Then2(
     const Function* on_rejected);
 PromiseState v8__Promise__State(const Promise* self);
 void v8__Promise__MarkAsHandled(const Promise* self);
+const Value* v8__Promise__Result(const Promise* self);
 
 // Array
 const Array* v8__Array__New(
@@ -512,6 +513,9 @@ void v8__Object__SetAlignedPointerInInternalField(
 // Exception
 const Value* v8__Exception__Error(const String* message);
 const StackTrace* v8__Exception__GetStackTrace(const Value* exception);
+const Message* v8__Exception__CreateMessage(
+    Isolate* isolate,
+    const Value* exception);
 
 // Number
 const Number* v8__Number__New(
@@ -647,6 +651,8 @@ const Object* v8__Function__NewInstance(
     const Context* context,
     int argc,
     const Value* const argv[]);
+const Value* v8__Function__GetName(const Function* self);
+void v8__Function__SetName(const Function* self, const String* name);
 
 // External
 const External* v8__External__New(

@@ -37,12 +37,6 @@ pub const MicrotasksPolicy = struct {
     pub const kAuto = c.kAuto;
 };
 
-pub const PromiseState = struct {
-    pub const kPending = c.kPending;
-    pub const kFulfilled = c.kFulfilled;
-    pub const kRejected = c.kRejected;
-};
-
 // Currently, user callback functions passed into FunctionTemplate will need to have this declared as a param and then
 // converted to FunctionCallbackInfo to get a nicer interface.
 pub const C_FunctionCallbackInfo = c.FunctionCallbackInfo;
@@ -177,10 +171,21 @@ pub const Exception = struct {
         };
     }
 
-    pub fn getStackTrace(exception: Value) StackTrace {
+    pub fn initMessage(iso: Isolate, exception: Value) Message {
         return .{
-            .handle = c.v8__Exception__GetStackTrace(exception.handle).?,
+            .handle = c.v8__Exception__CreateMessage(iso.handle, exception.handle).?,
         };
+    }
+
+    /// [v8]
+    /// Returns the original stack trace that was captured at the creation time
+    /// of a given exception, or an empty handle if not available.
+    pub fn getStackTrace(exception: Value) ?StackTrace {
+        if (c.v8__Exception__GetStackTrace(exception.handle)) |handle| {
+            return StackTrace{
+                .handle = handle,
+            };
+        } else return null;
     }
 };
 
@@ -266,8 +271,9 @@ pub const Isolate = struct {
         return c.v8__Isolate__AddMessageListenerWithErrorLevel(self.handle, callback, message_levels, value.handle);
     }
 
-    /// [v8] Tells V8 to capture current stack trace when uncaught exception occurs
-    ///      and report it to the message listeners. The option is off by default.
+    /// [v8]
+    /// Tells V8 to capture current stack trace when uncaught exception occurs
+    /// and report it to the message listeners. The option is off by default.
     pub fn setCaptureStackTraceForUncaughtExceptions(self: Self, capture: bool, frame_limit: u32) void {
         c.v8__Isolate__SetCaptureStackTraceForUncaughtExceptions(self.handle, capture, @intCast(c_int, frame_limit));
     }
@@ -758,6 +764,16 @@ pub const Function = struct {
             .handle = self.handle,
         };
     }
+
+    pub fn getName(self: Self) Value {
+        return .{
+            .handle = c.v8__Function__GetName(self.handle).?,
+        };
+    }
+
+    pub fn setName(self: Self, name: String) void {
+        c.v8__Function__SetName(self.handle, name.handle);
+    }
 };
 
 pub fn Persistent(comptime T: type) type {
@@ -767,7 +783,7 @@ pub fn Persistent(comptime T: type) type {
         inner: T,
 
         /// A new value is created that references the original value.
-        /// A Persistent handle is just a pointer just like any other value handles,
+        /// A Persistent handle is a pointer just like any other value handles,
         /// but when creating and operating on it, an indirect pointer is used to represent a c.Persistent struct (v8::Persistent<v8::Value> in C++).
         pub fn init(isolate: Isolate, data: T) Self {
             var handle: *c.Data = undefined;
@@ -948,16 +964,20 @@ pub const Object = struct {
         return out.has_value == 1;
     }
 
-    pub fn getValue(self: Self, ctx: Context, key: anytype) Value {
-        return .{
-            .handle = c.v8__Object__Get(self.handle, ctx.handle, getValueHandle(key)).?,
-        };
+    pub fn getValue(self: Self, ctx: Context, key: anytype) !Value {
+        if (c.v8__Object__Get(self.handle, ctx.handle, getValueHandle(key))) |handle| {
+            return Value{
+                .handle = handle,
+            };
+        } else return error.JsException;
     }
 
-    pub fn getAtIndex(self: Self, ctx: Context, idx: u32) Value {
-        return .{
-            .handle = c.v8__Object__GetIndex(self.handle, ctx.handle, idx).?,
-        };
+    pub fn getAtIndex(self: Self, ctx: Context, idx: u32) !Value {
+        if (c.v8__Object__GetIndex(self.handle, ctx.handle, idx)) |handle| {
+            return Value{
+                .handle = handle,
+            };
+        } else return error.JsException;
     }
 
     pub fn toValue(self: Self) Value {
@@ -1179,6 +1199,8 @@ inline fn getDataHandle(val: anytype) *const c.Data {
         Context => val.handle,
         Object => val.handle,
         Value => val.handle,
+        Module => val.handle,
+        Promise => val.handle,
         PromiseResolver => val.handle,
         else => @compileError(std.fmt.comptimePrint("{s} is not a subtype of v8::Data", .{@typeName(@TypeOf(val))})),
     });
@@ -1872,6 +1894,12 @@ pub fn initFalse(isolate: Isolate) Boolean {
 pub const Promise = struct {
     const Self = @This();
 
+    pub const State = enum(u32) {
+        kPending = c.kPending,
+        kFulfilled = c.kFulfilled,
+        kRejected = c.kRejected,
+    };
+
     handle: *const c.Promise,
 
     /// [V8]
@@ -1879,26 +1907,26 @@ pub const Promise = struct {
     /// The handler is given the respective resolution/rejection value as
     /// an argument. If the promise is already resolved/rejected, the handler is
     /// invoked at the end of turn.
-    pub fn onCatch(self: Self, ctx: Context, handler: Function) Promise {
-        return .{
-            .handle = c.v8__Promise__Catch(self.handle, ctx.handle, handler.handle).?,
-        };
+    pub fn onCatch(self: Self, ctx: Context, handler: Function) !Promise {
+        if (c.v8__Promise__Catch(self.handle, ctx.handle, handler.handle)) |handle| {
+            return Promise{ .handle = handle };
+        } else return error.JsException;
     }
 
-    pub fn then(self: Self, ctx: Context, handler: Function) Promise {
-        return .{
-            .handle = c.v8__Promise__Then(self.handle, ctx.handle, handler.handle).?,
-        };
+    pub fn then(self: Self, ctx: Context, handler: Function) !Promise {
+        if (c.v8__Promise__Then(self.handle, ctx.handle, handler.handle)) |handle| {
+            return Promise{ .handle = handle };
+        } else return error.JsException;
     }
 
-    pub fn thenAndCatch(self: Self, ctx: Context, on_fulfilled: Function, on_rejected: Function) Promise {
-        return .{
-            .handle = c.v8__Promise__Then2(self.handle, ctx.handle, on_fulfilled.handle, on_rejected.handle).?,
-        };
+    pub fn thenAndCatch(self: Self, ctx: Context, on_fulfilled: Function, on_rejected: Function) !Promise {
+        if (c.v8__Promise__Then2(self.handle, ctx.handle, on_fulfilled.handle, on_rejected.handle)) |handle| {
+            return Promise{ .handle = handle };
+        } else return error.JsException;
     }
 
-    pub fn getState(self: Self) c.PromiseState {
-        return c.v8__Promise__State(self.handle);
+    pub fn getState(self: Self) State {
+        return @intToEnum(State, c.v8__Promise__State(self.handle));
     }
 
     /// [V8]
@@ -1910,6 +1938,14 @@ pub const Promise = struct {
     pub fn toObject(self: Self) Object {
         return .{
             .handle = @ptrCast(*const c.Object, self.handle),
+        };
+    }
+
+    /// [V8]
+    /// Returns the content of the [[PromiseResult]] field. The Promise must not be pending.
+    pub fn getResult(self: Self) Value {
+        return .{
+            .handle = c.v8__Promise__Result(self.handle).?,
         };
     }
 };
