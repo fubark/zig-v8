@@ -2124,3 +2124,7 @@ inline fn ptrCastAlign(comptime Ptr: type, ptr: anytype) Ptr {
         return @ptrCast(Ptr, @alignCast(alignment, ptr));
     }
 }
+
+pub fn setDcheckFunction(func: fn (file: [*c]const u8, line: c_int, msg: [*c]const u8) callconv(.C) void) void {
+    c.v8__base__SetDcheckFunction(func);
+}

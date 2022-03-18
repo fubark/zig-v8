@@ -838,3 +838,6 @@ const String* v8__JSON__Stringify(
     const Context* ctx,
     const Value* val,
     const String* gap);
+
+// Misc.
+void v8__base__SetDcheckFunction(void (*func)(const char*, int, const char*));

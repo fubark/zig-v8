@@ -1372,4 +1372,10 @@ const v8::String* v8__JSON__Stringify(
         v8::JSON::Stringify(ptr_to_local(&ctx), ptr_to_local(&val), ptr_to_local(&gap)));
 }
 
+// Misc.
+
+void v8__base__SetDcheckFunction(void (*func)(const char*, int, const char*)) {
+    v8::base::SetDcheckFunction(func);
+}
+
 }
