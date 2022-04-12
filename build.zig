@@ -494,7 +494,12 @@ const DepEntry = struct {
 };
 
 fn getV8Rev(b: *Builder) ![]const u8 {
-    const file = try std.fs.openFileAbsolute(b.pathFromRoot("V8_REVISION"), .{ .read = true, .write = false });
+    var file: std.fs.File = undefined;
+    if (comptime isMinZigVersion()) {
+        file = try std.fs.openFileAbsolute(b.pathFromRoot("V8_REVISION"), .{ .read = true, .write = false });
+    } else {
+        file = try std.fs.openFileAbsolute(b.pathFromRoot("V8_REVISION"), .{ .mode = std.fs.File.OpenMode.read_write });
+    }
     defer file.close();
     return std.mem.trim(u8, try file.readToEndAlloc(b.allocator, 1e9), "\n\r ");
 }
@@ -685,15 +690,28 @@ const PathStat = enum {
 
 fn statPathFromRoot(b: *Builder, path_rel: []const u8) !PathStat {
     const path_abs = b.pathFromRoot(path_rel);
-    const file = std.fs.openFileAbsolute(path_abs, .{ .read = false, .write = false }) catch |err| {
-        if (err == error.FileNotFound) {
-            return .NotExist;
-        } else if (err == error.IsDir) {
-            return .Directory;
-        } else {
-            return err;
-        }
-    };
+    var file: std.fs.File = undefined;
+    if (comptime isMinZigVersion()) {
+        file = std.fs.openFileAbsolute(path_abs, .{ .read = false, .write = false }) catch |err| {
+            if (err == error.FileNotFound) {
+                return .NotExist;
+            } else if (err == error.IsDir) {
+                return .Directory;
+            } else {
+                return err;
+            }
+        };
+    } else {
+        file = std.fs.openFileAbsolute(path_abs, .{ .mode = std.fs.File.OpenMode.read_only }) catch |err| {
+            if (err == error.FileNotFound) {
+                return .NotExist;
+            } else if (err == error.IsDir) {
+                return .Directory;
+            } else {
+                return err;
+            }
+        };
+    }
     defer file.close();
 
     const stat = try file.stat();
@@ -703,4 +721,8 @@ fn statPathFromRoot(b: *Builder, path_rel: []const u8) !PathStat {
         .File => return .File,
         else => return .Unknown,
     }
+}
+
+fn isMinZigVersion() bool {
+    return builtin.zig_version.major == 0 and builtin.zig_version.minor == 9;
 }
