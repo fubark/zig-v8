@@ -704,3 +704,7 @@ fn statPathFromRoot(b: *Builder, path_rel: []const u8) !PathStat {
         else => return .Unknown,
     }
 }
+
+fn isMinZigVersion() bool {
+    return builtin.zig_version.major == 0 and builtin.zig_version.minor == 9;
+}
