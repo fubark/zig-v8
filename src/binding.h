@@ -512,6 +512,10 @@ void v8__Object__SetAlignedPointerInInternalField(
 
 // Exception
 const Value* v8__Exception__Error(const String* message);
+const Value* v8__Exception__TypeError(const String* message);
+const Value* v8__Exception__SyntaxError(const String* message);
+const Value* v8__Exception__ReferenceError(const String* message);
+const Value* v8__Exception__RangeError(const String* message);
 const StackTrace* v8__Exception__GetStackTrace(const Value* exception);
 const Message* v8__Exception__CreateMessage(
     Isolate* isolate,
