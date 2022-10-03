@@ -171,6 +171,30 @@ pub const Exception = struct {
         };
     }
 
+    pub fn initTypeError(msg: String) Value {
+        return .{
+            .handle = c.v8__Exception__TypeError(msg.handle).?,
+        };
+    }
+
+    pub fn initSyntaxError(msg: String) Value {
+        return .{
+            .handle = c.v8__Exception__SyntaxError(msg.handle).?,
+        };
+    }
+
+    pub fn initReferenceError(msg: String) Value {
+        return .{
+            .handle = c.v8__Exception__ReferenceError(msg.handle).?,
+        };
+    }
+
+    pub fn initRangeError(msg: String) Value {
+        return .{
+            .handle = c.v8__Exception__RangeError(msg.handle).?,
+        };
+    }
+
     pub fn initMessage(iso: Isolate, exception: Value) Message {
         return .{
             .handle = c.v8__Exception__CreateMessage(iso.handle, exception.handle).?,
