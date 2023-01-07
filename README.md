@@ -58,6 +58,9 @@ zig build -Drelease-safe
 # shell.zig is a simple JS repl.
 # Assumes you've already built v8.
 zig build run -Dpath="src/shell.zig" -Drelease-safe
+
+# If you built v8 using the zig toolchain, you'll need to add the flag here as well.
+zig build run -Dpath="src/shell.zig" -Drelease-safe -Dzig-toolchain
 ```
 
 ## Cross Compiling
