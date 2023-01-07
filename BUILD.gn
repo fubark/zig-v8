@@ -119,6 +119,8 @@ zig_toolchain("v8_zig_toolchain") {
   #ar = "${prefix}/llvm-ar"
   ar = "zig ar"
 
+  extra_cppflags = "-Wno-unused-but-set-variable"
+
   toolchain_args = {
     current_os = host_os
     current_cpu = host_cpu
