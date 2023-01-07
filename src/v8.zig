@@ -1,4 +1,5 @@
 const std = @import("std");
+const t = std.testing;
 
 const c = @cImport({
     @cInclude("binding.h");
@@ -80,14 +81,6 @@ pub const Platform = struct {
     /// tasks (IdleTasksEnabled will return true) and will rely on the embedder
     /// calling v8::platform::RunIdleTasks to process the idle tasks.
     pub fn initDefault(thread_pool_size: u32, idle_task_support: bool) Self {
-        // Verify struct sizes.
-        const assert = std.debug.assert;
-        assert(@sizeOf(c.CreateParams) == c.v8__Isolate__CreateParams__SIZEOF());
-        assert(@sizeOf(c.TryCatch) == c.v8__TryCatch__SIZEOF());
-        assert(@sizeOf(c.PromiseRejectMessage) == c.v8__PromiseRejectMessage__SIZEOF());
-        assert(@sizeOf(c.ScriptCompilerSource) == c.v8__ScriptCompiler__Source__SIZEOF());
-        assert(@sizeOf(c.ScriptCompilerCachedData) == c.v8__ScriptCompiler__CachedData__SIZEOF());
-        assert(@sizeOf(c.HeapStatistics) == c.v8__HeapStatistics__SIZEOF());
         return .{
             .handle = c.v8__Platform__NewDefaultPlatform(@intCast(c_int, thread_pool_size), if (idle_task_support) 1 else 0).?,
         };
@@ -2151,4 +2144,15 @@ inline fn ptrCastAlign(comptime Ptr: type, ptr: anytype) Ptr {
 
 pub fn setDcheckFunction(func: fn (file: [*c]const u8, line: c_int, msg: [*c]const u8) callconv(.C) void) void {
     c.v8__base__SetDcheckFunction(func);
+}
+
+test "Internals." {
+    // Verify struct sizes.
+    const eq = t.expectEqual;
+    try eq(c.v8__Isolate__CreateParams__SIZEOF(), @sizeOf(c.CreateParams));
+    try eq(c.v8__TryCatch__SIZEOF(), @sizeOf(c.TryCatch));
+    try eq(c.v8__PromiseRejectMessage__SIZEOF(), @sizeOf(c.PromiseRejectMessage));
+    try eq(c.v8__ScriptCompiler__Source__SIZEOF(), @sizeOf(c.ScriptCompilerSource));
+    try eq(c.v8__ScriptCompiler__CachedData__SIZEOF(), @sizeOf(c.ScriptCompilerCachedData));
+    try eq(c.v8__HeapStatistics__SIZEOF(), @sizeOf(c.HeapStatistics));
 }
