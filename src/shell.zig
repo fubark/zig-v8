@@ -194,7 +194,7 @@ pub fn getTryCatchErrorString(alloc: std.mem.Allocator, isolate: v8.Isolate, try
             writer.writeByte('\n') catch unreachable;
         }
 
-        return buf.toOwnedSlice();
+        return buf.toOwnedSlice() catch unreachable;
     } else {
         // V8 didn't provide any extra information about this error, just get exception str.
         const exception = try_catch.getException().?;

@@ -472,7 +472,7 @@ fn linkV8(b: *Builder, step: *std.build.LibExeObjStep, use_zig_tc: bool) void {
 fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode, use_zig_tc: bool) *std.build.LibExeObjStep {
     const step = b.addTest("./test/test.zig");
     step.setMainPkgPath(".");
-    step.addIncludeDir("./src");
+    step.addIncludePath("./src");
     step.setTarget(target);
     step.setBuildMode(mode);
     step.linkLibC();
@@ -665,7 +665,7 @@ fn createBuildExeStep(b: *Builder, path: []const u8, target: std.zig.CrossTarget
     step.setTarget(target);
 
     step.linkLibC();
-    step.addIncludeDir("src");
+    step.addIncludePath("src");
 
     const output_dir_rel = std.fmt.allocPrint(b.allocator, "zig-out/{s}", .{name}) catch unreachable;
     const output_dir = b.pathFromRoot(output_dir_rel);
