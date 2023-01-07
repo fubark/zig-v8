@@ -54,6 +54,7 @@ jobs:
         }')[github.event.inputs.target] }}
       LIB_NAME: ${{ contains(github.event.inputs.target, 'windows') && 'c_v8' || 'libc_v8' }}
       LIB_EXT: ${{ contains(github.event.inputs.target, 'windows') && 'lib' || 'a' }}
+      BUILD_HOST: ${{ matrix.config.host }}
       BUILD_TARGET: ${{ github.event.inputs.target }}
       BUILD_MODE: ${{ github.event.inputs.mode }}
       BUILD_TOOLCHAIN: ${{ github.event.inputs.toolchain }}
