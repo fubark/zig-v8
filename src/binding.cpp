@@ -1224,6 +1224,22 @@ const v8::Value* v8__Exception__Error(const v8::String& message) {
     return local_to_ptr(v8::Exception::Error(ptr_to_local(&message)));
 }
 
+const v8::Value* v8__Exception__TypeError(const v8::String& message) {
+    return local_to_ptr(v8::Exception::TypeError(ptr_to_local(&message)));
+}
+
+const v8::Value* v8__Exception__SyntaxError(const v8::String& message) {
+    return local_to_ptr(v8::Exception::SyntaxError(ptr_to_local(&message)));
+}
+
+const v8::Value* v8__Exception__ReferenceError(const v8::String& message) {
+    return local_to_ptr(v8::Exception::ReferenceError(ptr_to_local(&message)));
+}
+
+const v8::Value* v8__Exception__RangeError(const v8::String& message) {
+    return local_to_ptr(v8::Exception::RangeError(ptr_to_local(&message)));
+}
+
 const v8::StackTrace* v8__Exception__GetStackTrace(const v8::Value& exception) {
     return local_to_ptr(v8::Exception::GetStackTrace(ptr_to_local(&exception)));
 }
