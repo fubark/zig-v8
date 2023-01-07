@@ -14,19 +14,19 @@ jobs:
       fail-fast: true
       matrix:
         config:
-          - host: ubuntu-20.04
+          - host: ubuntu-22.04
             target: x86_64-linux-gnu
             mode: release
             toolchain: zig
-          - host: macos-11
+          - host: macos-12
             target: x86_64-macos-gnu
             mode: release
             toolchain: v8
-          - host: ubuntu-20.04
+          - host: ubuntu-22.04
             target: x86_64-windows-gnu
             mode: release
             toolchain: zig
-          - host: ubuntu-20.04
+          - host: ubuntu-22.04
             target: aarch64-macos-gnu
             mode: release
             toolchain: zig
@@ -90,9 +90,15 @@ jobs:
             }
 
       - name: Install zig.
-        uses: goto-bus-stop/setup-zig@v1
-        with:
-          version: 0.11.0
+        if: env.BUILD_HOST == 'ubuntu-22.04'
+        run: |
+          wget -c https://ziglang.org/builds/zig-linux-x86_64-0.11.0-dev.944+a193ec432.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin
+
+      - name: Install zig.
+        if: env.BUILD_HOST == 'macos-12'
+        run: |
+          wget -c https://ziglang.org/builds/zig-macos-x86_64-0.11.0-dev.944+a193ec432.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin
+          xcode-select --print-path
 
       - name: Cache.
         if: env.BUILD_TOOLCHAIN == 'zig'
