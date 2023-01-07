@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
-typedef char bool;
 typedef uintptr_t usize;
 typedef struct Data Data;
 typedef struct ArrayBuffer ArrayBuffer;
