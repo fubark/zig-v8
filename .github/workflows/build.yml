@@ -45,6 +45,7 @@ jobs:
           "x86_64-macos-gnu": "-Dtarget=x86_64-macos.10.13-gnu -Dcpu=baseline",
           "aarch64-macos-gnu": "-Dtarget=aarch64-macos.11-gnu -Dcpu=baseline",
         }')[matrix.config.target] }}
+      BUILD_HOST: ${{ matrix.config.host }}
       BUILD_TARGET: ${{ matrix.config.target }}
       BUILD_MODE: ${{ matrix.config.mode }}
       BUILD_TOOLCHAIN: ${{ matrix.config.toolchain }}
