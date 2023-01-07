@@ -15,10 +15,10 @@ on:
         description: Target
         options:
           - x86_64-linux-gnu
-          - x86_64-macos-gnu
+          - x86_64-macos-none
           - x86_64-windows-msvc
           - x86_64-windows-gnu
-          - aarch64-macos-gnu
+          - aarch64-macos-none
       mode:
         type: choice
         description: Mode
@@ -41,16 +41,16 @@ jobs:
           "x86_64-windows-gnu": "x86_64-windows",
           "x86_64-windows-msvc": "x86_64-windows",
           "x86_64-linux-gnu": "x86_64-linux",
-          "x86_64-macos-gnu": "x86_64-macos",
-          "aarch64-macos-gnu": "aarch64-macos",
+          "x86_64-macos-none": "x86_64-macos",
+          "aarch64-macos-none": "aarch64-macos",
         }')[github.event.inputs.target] }}
       ZIG_TARGET_FLAG: >-
         ${{ fromJson('{
           "x86_64-windows-gnu": "-Dtarget=x86_64-windows-gnu -Dcpu=baseline",
           "x86_64-windows-msvc": "-Dtarget=x86_64-windows-msvc -Dcpu=baseline",
           "x86_64-linux-gnu": "-Dtarget=x86_64-linux-gnu -Dcpu=baseline",
-          "x86_64-macos-gnu": "-Dtarget=x86_64-macos.10.13-gnu -Dcpu=baseline",
-          "aarch64-macos-gnu": "-Dtarget=aarch64-macos.11-gnu -Dcpu=baseline",
+          "x86_64-macos-none": "-Dtarget=x86_64-macos.12-none -Dcpu=baseline",
+          "aarch64-macos-none": "-Dtarget=aarch64-macos.12-none -Dcpu=baseline",
         }')[github.event.inputs.target] }}
       LIB_NAME: ${{ contains(github.event.inputs.target, 'windows') && 'c_v8' || 'libc_v8' }}
       LIB_EXT: ${{ contains(github.event.inputs.target, 'windows') && 'lib' || 'a' }}
