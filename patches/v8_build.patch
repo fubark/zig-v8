@@ -1,8 +1,8 @@
 diff --git a/config/BUILD.gn b/config/BUILD.gn
-index d5bc52240..cab9c7e49 100644
+index 35c9a6275..37fd23e98 100644
 --- a/config/BUILD.gn
 +++ b/config/BUILD.gn
-@@ -288,7 +288,7 @@ group("shared_library_deps") {
+@@ -289,7 +289,7 @@ group("shared_library_deps") {
  # Executable configs -----------------------------------------------------------
  
  # Windows linker setup for EXEs and DLLs.
@@ -11,7 +11,7 @@ index d5bc52240..cab9c7e49 100644
    _windows_linker_configs = [
      "//build/config/win:sdk_link",
      "//build/config/win:common_linker_setup",
-@@ -299,9 +299,9 @@ if (is_win) {
+@@ -300,9 +300,9 @@ if (is_win) {
  config("executable_config") {
    configs = []
  
@@ -23,7 +23,7 @@ index d5bc52240..cab9c7e49 100644
      configs += [ "//build/config/mac:mac_dynamic_flags" ]
    } else if (is_ios) {
      configs += [
-@@ -334,9 +334,9 @@ config("executable_config") {
+@@ -332,9 +332,9 @@ config("executable_config") {
  config("shared_library_config") {
    configs = []
  
@@ -36,10 +36,10 @@ index d5bc52240..cab9c7e49 100644
    } else if (is_ios) {
      configs += [
 diff --git a/config/BUILDCONFIG.gn b/config/BUILDCONFIG.gn
-index fcc7e1283..627b8253c 100644
+index cc7e92ddb..2d1db7e2a 100644
 --- a/config/BUILDCONFIG.gn
 +++ b/config/BUILDCONFIG.gn
-@@ -153,6 +153,15 @@ declare_args() {
+@@ -158,6 +158,15 @@ declare_args() {
    # DON'T ADD MORE FLAGS HERE. Read the comment above.
  }
  
@@ -55,7 +55,7 @@ index fcc7e1283..627b8253c 100644
  declare_args() {
    # Debug build. Enabling official builds automatically sets is_debug to false.
    is_debug = !is_official_build
-@@ -348,7 +357,7 @@ default_compiler_configs = [
+@@ -354,7 +363,7 @@ default_compiler_configs = [
    "//build/config/sanitizers:default_sanitizer_flags",
  ]
  
@@ -64,7 +64,7 @@ index fcc7e1283..627b8253c 100644
    default_compiler_configs += [
      "//build/config/win:default_cfg_compiler",
      "//build/config/win:default_crt",
-@@ -405,7 +414,7 @@ set_defaults("rust_proc_macro") {
+@@ -411,7 +420,7 @@ set_defaults("rust_proc_macro") {
  
  # Compute the set of configs common to all linked targets (shared libraries,
  # loadable modules, executables) to avoid duplication below.
@@ -73,7 +73,7 @@ index fcc7e1283..627b8253c 100644
    # Many targets remove these configs, so they are not contained within
    # //build/config:executable_config for easy removal.
    _linker_configs = [
-@@ -415,7 +424,7 @@ if (is_win) {
+@@ -421,7 +430,7 @@ if (is_win) {
      # that shouldn't use the windows subsystem.
      "//build/config/win:console",
    ]
@@ -82,7 +82,7 @@ index fcc7e1283..627b8253c 100644
    _linker_configs = [ "//build/config/mac:strip_all" ]
  } else {
    _linker_configs = []
-@@ -427,7 +436,7 @@ default_executable_configs = default_compiler_configs + [
+@@ -433,7 +442,7 @@ default_executable_configs = default_compiler_configs + [
                                 "//build/config:executable_config",
                               ] + _linker_configs
  
@@ -91,7 +91,7 @@ index fcc7e1283..627b8253c 100644
    # Turn on linker CFI for executables, and position it so it can be removed
    # if needed.
    default_executable_configs += [ "//build/config/win:cfi_linker" ]
-@@ -443,7 +452,7 @@ default_shared_library_configs = default_compiler_configs + [
+@@ -449,7 +458,7 @@ default_shared_library_configs = default_compiler_configs + [
                                     "//build/config:default_libs",
                                     "//build/config:shared_library_config",
                                   ] + _linker_configs
@@ -101,10 +101,10 @@ index fcc7e1283..627b8253c 100644
    default_shared_library_configs += [ "//build/config/win:cfi_linker" ]
  }
 diff --git a/config/compiler/BUILD.gn b/config/compiler/BUILD.gn
-index e49fc28c0..870d9cd05 100644
+index 50be57ff8..ddac52169 100644
 --- a/config/compiler/BUILD.gn
 +++ b/config/compiler/BUILD.gn
-@@ -266,7 +266,7 @@ config("compiler") {
+@@ -263,7 +263,7 @@ config("compiler") {
    # System-specific flags. If your compiler flags apply to one of the
    # categories here, add it to the associated file to keep this shared config
    # smaller.
@@ -113,8 +113,8 @@ index e49fc28c0..870d9cd05 100644
      configs += [ "//build/config/win:compiler" ]
    } else if (is_android) {
      configs += [ "//build/config/android:compiler" ]
-@@ -277,7 +277,7 @@ config("compiler") {
-     }
+@@ -271,7 +271,7 @@ config("compiler") {
+     configs += [ "//build/config/linux:compiler" ]
    } else if (is_nacl) {
      configs += [ "//build/config/nacl:compiler" ]
 -  } else if (is_mac) {
@@ -122,7 +122,7 @@ index e49fc28c0..870d9cd05 100644
      configs += [ "//build/config/mac:compiler" ]
    } else if (is_ios) {
      configs += [ "//build/config/ios:compiler" ]
-@@ -298,6 +298,11 @@ config("compiler") {
+@@ -292,6 +292,11 @@ config("compiler") {
      ":compiler_deterministic",
    ]
  
@@ -134,7 +134,7 @@ index e49fc28c0..870d9cd05 100644
    # Here we enable -fno-delete-null-pointer-checks, which makes various nullptr
    # operations (e.g. dereferencing) into defined behavior. This avoids deletion
    # of some security-critical code: see https://crbug.com/1139129.
-@@ -350,7 +355,7 @@ config("compiler") {
+@@ -344,7 +349,7 @@ config("compiler") {
      }
  
      if (use_lld) {
@@ -143,7 +143,7 @@ index e49fc28c0..870d9cd05 100644
        if (lld_path != "") {
          ldflags += [ "-B$lld_path" ]
        }
-@@ -552,7 +557,7 @@ config("compiler") {
+@@ -562,7 +567,7 @@ config("compiler") {
      }
  
      # TODO(crbug.com/1235145): Investigate why/if this should be needed.
@@ -152,25 +152,16 @@ index e49fc28c0..870d9cd05 100644
        cflags += [ "/clang:-ffp-contract=off" ]
      } else {
        cflags += [ "-ffp-contract=off" ]
-@@ -597,7 +602,7 @@ config("compiler") {
-     } else {
-       cflags_cc += [ "-std=${standard_prefix}++17" ]
+@@ -621,7 +626,7 @@ config("compiler") {
+       # support "c++20"/"gnu++20".
+       cflags_cc += [ "-std=${standard_prefix}++2a" ]
      }
 -  } else if (is_win) {
 +  } else if (is_win && !use_zig_tc) {
-     cflags_cc += [ "/std:c++17" ]
-   } else if (!is_nacl) {
-     # TODO(mcgrathr) - the NaCl GCC toolchain doesn't support either gnu11/gnu++11
-@@ -629,7 +634,7 @@ config("compiler") {
-   # allocation behavior (and do that on all platforms so that we have
-   # consistent behavior across platforms), to make the change more incremental.
-   if (!is_nacl || is_nacl_saigo) {
--    if (is_win) {
-+    if (is_win && !use_zig_tc) {
-       cflags_cc += [ "/Zc:alignedNew-" ]
-     } else {
-       cflags_cc += [ "-fno-aligned-new" ]
-@@ -1377,14 +1382,16 @@ config("runtime_library") {
+     cflags_c += [ "/std:c11" ]
+     if (use_cxx17 || (!is_clang && defined(msvc_use_cxx17) && msvc_use_cxx17)) {
+       cflags_cc += [ "/std:c++17" ]
+@@ -1473,7 +1478,7 @@ config("runtime_library") {
    # System-specific flags. If your compiler flags apply to one of the
    # categories here, add it to the associated file to keep this shared config
    # smaller.
@@ -179,6 +170,7 @@ index e49fc28c0..870d9cd05 100644
      configs += [ "//build/config/win:runtime_library" ]
    } else if (is_linux || is_chromeos) {
      configs += [ "//build/config/linux:runtime_library" ]
+@@ -1483,7 +1488,9 @@ config("runtime_library") {
    } else if (is_ios) {
      configs += [ "//build/config/ios:runtime_library" ]
    } else if (is_mac) {
@@ -189,7 +181,7 @@ index e49fc28c0..870d9cd05 100644
    } else if (is_android) {
      configs += [ "//build/config/android:runtime_library" ]
    }
-@@ -1405,7 +1412,7 @@ config("default_warnings") {
+@@ -1504,7 +1511,7 @@ config("default_warnings") {
    cflags_cc = []
    ldflags = []
  
@@ -198,7 +190,7 @@ index e49fc28c0..870d9cd05 100644
      if (treat_warnings_as_errors) {
        cflags += [ "/WX" ]
      }
-@@ -1580,7 +1587,7 @@ config("prevent_unsafe_narrowing") {
+@@ -1684,7 +1691,7 @@ config("prevent_unsafe_narrowing") {
  # part of Chromium.
  
  config("chromium_code") {
@@ -207,7 +199,7 @@ index e49fc28c0..870d9cd05 100644
      if (is_clang) {
        cflags = [ "/W4" ]  # Warning level 4.
  
-@@ -1676,7 +1683,7 @@ config("no_chromium_code") {
+@@ -1771,7 +1778,7 @@ config("no_chromium_code") {
    cflags_cc = []
    defines = []
  
@@ -216,7 +208,7 @@ index e49fc28c0..870d9cd05 100644
      if (is_clang) {
        cflags += [ "/W3" ]  # Warning level 3.
      }
-@@ -1781,7 +1788,7 @@ config("rtti") {
+@@ -1848,7 +1855,7 @@ config("rtti") {
  config("no_rtti") {
    # Some sanitizer configs may require RTTI to be left enabled globally
    if (!use_rtti) {
@@ -225,7 +217,7 @@ index e49fc28c0..870d9cd05 100644
        cflags_cc = [ "/GR-" ]
      } else {
        cflags_cc = [ "-fno-rtti" ]
-@@ -1823,7 +1830,7 @@ config("thin_archive") {
+@@ -1890,7 +1897,7 @@ config("thin_archive") {
    # archives.
    # TODO(crbug.com/1221615): Enable on is_apple if use_lld once that no longer
    # confuses lldb.
@@ -234,7 +226,7 @@ index e49fc28c0..870d9cd05 100644
      arflags = [ "-T" ]
    } else if (is_win && use_lld) {
      arflags = [ "/llvmlibthin" ]
-@@ -1915,7 +1922,7 @@ config("no_incompatible_pointer_warnings") {
+@@ -1982,7 +1989,7 @@ config("no_incompatible_pointer_warnings") {
  
  # Shared settings for both "optimize" and "optimize_max" configs.
  # IMPORTANT: On Windows "/O1" and "/O2" must go before the common flags.
@@ -243,7 +235,7 @@ index e49fc28c0..870d9cd05 100644
    common_optimize_on_cflags = [
      "/Ob2",  # Both explicit and auto inlining.
      "/Oy-",  # Disable omitting frame pointers, must be after /O2.
-@@ -2021,7 +2028,7 @@ config("default_stack_frames") {
+@@ -2088,7 +2095,7 @@ config("default_stack_frames") {
  
  # Default "optimization on" config.
  config("optimize") {
@@ -252,7 +244,7 @@ index e49fc28c0..870d9cd05 100644
      if (chrome_pgo_phase != 2) {
        # Favor size over speed, /O1 must be before the common flags.
        # /O1 implies /Os and /GF.
-@@ -2111,7 +2118,7 @@ config("optimize_max") {
+@@ -2199,7 +2206,7 @@ config("optimize_max") {
      configs = [ "//build/config/nacl:irt_optimize" ]
    } else {
      ldflags = common_optimize_on_ldflags
@@ -261,7 +253,7 @@ index e49fc28c0..870d9cd05 100644
        # Favor speed over size, /O2 must be before the common flags.
        # /O2 implies /Ot, /Oi, and /GF.
        cflags = [ "/O2" ] + common_optimize_on_cflags
-@@ -2144,7 +2151,7 @@ config("optimize_speed") {
+@@ -2232,7 +2239,7 @@ config("optimize_speed") {
      configs = [ "//build/config/nacl:irt_optimize" ]
    } else {
      ldflags = common_optimize_on_ldflags
@@ -271,12 +263,12 @@ index e49fc28c0..870d9cd05 100644
        # /O2 implies /Ot, /Oi, and /GF.
        cflags = [ "/O2" ] + common_optimize_on_cflags
 diff --git a/config/linux/BUILD.gn b/config/linux/BUILD.gn
-index 2137ed81d..4014edee2 100644
+index 131bb71d1..5cde9fff4 100644
 --- a/config/linux/BUILD.gn
 +++ b/config/linux/BUILD.gn
-@@ -43,7 +43,10 @@ config("runtime_library") {
-   if ((!(is_chromeos_ash || is_chromeos_lacros) ||
-        default_toolchain != "//build/toolchain/cros:target") &&
+@@ -42,7 +42,10 @@ config("runtime_library") {
+ 
+   if ((!is_chromeos || default_toolchain != "//build/toolchain/cros:target") &&
        (!use_custom_libcxx || current_cpu == "mipsel")) {
 -    libs = [ "atomic" ]
 +    if (!use_zig_tc) {
@@ -287,10 +279,10 @@ index 2137ed81d..4014edee2 100644
  }
  
 diff --git a/config/sysroot.gni b/config/sysroot.gni
-index 18d2d5736..0b1689b7d 100644
+index dea380727..2f493a04f 100644
 --- a/config/sysroot.gni
 +++ b/config/sysroot.gni
-@@ -67,7 +67,7 @@ if (sysroot == "") {
+@@ -65,7 +65,7 @@ if (sysroot == "") {
                        "string") == "True",
            "Missing sysroot ($sysroot). To fix, run: build/linux/sysroot_scripts/install-sysroot.py --arch=$_script_arch")
      }
@@ -300,10 +292,10 @@ index 18d2d5736..0b1689b7d 100644
      sysroot = mac_sdk_path
    } else if (is_ios) {
 diff --git a/toolchain/gcc_toolchain.gni b/toolchain/gcc_toolchain.gni
-index 0ad4537a3..6b0f4d198 100644
+index 48f931764..21db4578c 100644
 --- a/toolchain/gcc_toolchain.gni
 +++ b/toolchain/gcc_toolchain.gni
-@@ -348,11 +348,13 @@ template("gcc_toolchain") {
+@@ -361,11 +361,13 @@ template("gcc_toolchain") {
        extra_ldflags = ""
      }
  
@@ -317,7 +309,7 @@ index 0ad4537a3..6b0f4d198 100644
  
      enable_linker_map = defined(invoker.enable_linker_map) &&
                          invoker.enable_linker_map && generate_linker_map
-@@ -367,7 +369,11 @@ template("gcc_toolchain") {
+@@ -380,7 +382,11 @@ template("gcc_toolchain") {
      tool("cc") {
        depfile = "{{output}}.d"
        precompiled_header_type = "gcc"
@@ -330,7 +322,7 @@ index 0ad4537a3..6b0f4d198 100644
        depsformat = "gcc"
        description = "CC {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -376,7 +382,11 @@ template("gcc_toolchain") {
+@@ -389,7 +395,11 @@ template("gcc_toolchain") {
      tool("cxx") {
        depfile = "{{output}}.d"
        precompiled_header_type = "gcc"
@@ -343,7 +335,7 @@ index 0ad4537a3..6b0f4d198 100644
        depsformat = "gcc"
        description = "CXX {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -385,7 +395,11 @@ template("gcc_toolchain") {
+@@ -398,7 +408,11 @@ template("gcc_toolchain") {
      tool("asm") {
        # For GCC we can just use the C compiler to compile assembly.
        depfile = "{{output}}.d"
@@ -356,7 +348,7 @@ index 0ad4537a3..6b0f4d198 100644
        depsformat = "gcc"
        description = "ASM {{output}}"
        outputs = [ "$object_subdir/{{source_name_part}}.o" ]
-@@ -399,7 +413,11 @@ template("gcc_toolchain") {
+@@ -412,7 +426,11 @@ template("gcc_toolchain") {
        } else {
          rspfile = "{{output}}.rsp"
          rspfile_content = "{{inputs}}"
