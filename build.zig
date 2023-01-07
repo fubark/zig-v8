@@ -141,6 +141,16 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         try host_zig_cc.append("zig cc --target=native");
         try host_zig_cxx.append("zig c++ --target=native");
 
+        // Ignore "a function definition without a prototype is deprecated in all versions of C and is not supported in C2x [-Werror,-Wdeprecated-non-prototype]"
+        try zig_cc.append("-Wno-deprecated-non-prototype");
+        try zig_cxx.append("-Wno-deprecated-non-prototype");
+        try host_zig_cc.append("-Wno-deprecated-non-prototype");
+        try host_zig_cxx.append("-Wno-deprecated-non-prototype");
+
+        // For zlib.
+        try zig_cc.append("-mcrc32");
+        try zig_cxx.append("-mcrc32");
+
         if (target.getOsTag() == .windows and target.getAbi() == .gnu) {
             // V8 expects __declspec(dllexport) to not expand in it's test in src/base/export-template.h but it does when compiling with mingw.
             try zig_cxx.append("-DEXPORT_TEMPLATE_TEST_MSVC_HACK_DEFAULT\\(...\\)=true");

@@ -79,6 +79,7 @@ template("zig_toolchain") {
         "cxx",
         "ld",
         "ar",
+        "extra_cppflags",
       ])
 
     toolchain_args = {
@@ -98,6 +99,8 @@ zig_toolchain("main_zig_toolchain") {
   ld = cxx
   #ar = "${prefix}/llvm-ar"
   ar = "zig ar"
+
+  extra_cppflags = "-Wno-unused-but-set-variable"
 
   toolchain_args = {
     current_cpu = target_cpu

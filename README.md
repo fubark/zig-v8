@@ -24,7 +24,7 @@ Static libs are built and released with [Github Actions](https://github.com/fuba
 \* Time is measured on standard Github instances.
 
 ## System Requirements
-- Zig compiler (0.9.0). You can get that [here](https://ziglang.org/download/).
+- Zig compiler (0.11.0). You can get that [here](https://ziglang.org/download/).
 - Python 3 (2.7 seems to work as well)
 - For native macOS builds:
   - XCode (You won't need this when using zig's c++ toolchain!)<br/>
