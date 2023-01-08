@@ -107,6 +107,19 @@ index 0eedaba..14638de 100644
  
  #endif  // __MINGW32__
  
+diff --git a/src/compiler/revectorizer.cc b/src/compiler/revectorizer.cc
+index a680934..d433ec4 100644
+--- a/src/compiler/revectorizer.cc
++++ b/src/compiler/revectorizer.cc
+@@ -739,7 +739,7 @@ Node* Revectorizer::VectorizeTree(PackNode* pnode) {
+                   edge.to()->op()->mnemonic());
+ 
+             if (!input_128) {
+-              TRACE("Create ExtractF128(%lu) node from #%d\n", i,
++              TRACE("Create ExtractF128(%zu) node from #%d\n", i,
+                     new_node->id());
+               input_128 = graph()->NewNode(
+                   mcgraph()->machine()->ExtractF128(int32_t(i)), new_node);
 diff --git a/src/interpreter/bytecode-generator.cc b/src/interpreter/bytecode-generator.cc
 index 706d897..5b0aac0 100644
 --- a/src/interpreter/bytecode-generator.cc

@@ -184,6 +184,7 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
             // Disable instrumentation since mingw doesn't have TraceLoggingProvider.h
             try gn_args.append("v8_enable_system_instrumentation=false");
+            try gn_args.append("v8_enable_etw_stack_walking=false");
         }
 
         // Use zig's libcxx instead.
