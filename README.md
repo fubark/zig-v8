@@ -13,7 +13,7 @@ Static libs are built and released with [Github Actions](https://github.com/fuba
 | ✅ | | macOS x64 | shell - 24 M |
 | ✅ | ✅ | macOS arm64 | shell - 21 M |
 
-\* shell.zig is a JS repl and statically linked with v8. Compiled with -Drelease-safe. The V8 dependency can be further reduced in size if you don't need all the features (eg. disable WASM runtime).
+\* shell.zig is a JS repl and statically linked with v8. Compiled with -Doptimize=ReleaseSafe. The V8 dependency can be further reduced in size if you don't need all the features (eg. disable WASM runtime).
 
 | Toolchain | Fresh Build* | Cached Build* |
 | ------ | ------ | ------ |
@@ -50,17 +50,17 @@ zig build get-v8
 
 # Build, resulting static library should be at:
 # v8-build/{target}/{debug/release}/ninja/obj/zig/libc_v8.a
-# On windows, use msvc: zig build -Drelease-safe -Dtarget=x86_64-windows-msvc
-zig build -Drelease-safe
+# On windows, use msvc: zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-windows-msvc
+zig build -Doptimize=ReleaseSafe
 ```
 ## Demo
 ```sh
 # shell.zig is a simple JS repl.
 # Assumes you've already built v8.
-zig build run -Dpath="src/shell.zig" -Drelease-safe
+zig build run -Dpath="src/shell.zig" -Doptimize=ReleaseSafe
 
 # If you built v8 using the zig toolchain, you'll need to add the flag here as well.
-zig build run -Dpath="src/shell.zig" -Drelease-safe -Dzig-toolchain
+zig build run -Dpath="src/shell.zig" -Doptimize=ReleaseSafe -Dzig-toolchain
 ```
 
 ## Cross Compiling
@@ -70,13 +70,13 @@ With Zig's toolchain, we can build V8 from libstdc++ that's bundled with zig and
 # Assumes you've fetched tools and v8 sources. See above build steps.
 # Resulting static lib will be at:
 # v8-build/aarch64-macos/release/ninja/obj/zig/libc_v8.a
-zig build -Drelease-safe -Dtarget=aarch64-macos-gnu -Dzig-toolchain
+zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-macos-gnu -Dzig-toolchain
 ```
 
 ### Cross compile to Windows with gnu (mingw64)
 Zig comes with mingw64 source and headers so you'll be able to target Windows without MSVC.
 ```sh
-zig build -Drelease-safe -Dtarget=x86_64-windows-gnu -Dzig-toolchain
+zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-windows-gnu -Dzig-toolchain
 ```
 
 ## Usage
@@ -88,3 +88,24 @@ See src/shell.zig or test/test.zig on how to use the library with the Zig API as
 The C bindings is incomplete but it should be relatively easy to add more as we need them.
 
 C API naming convention should closely follow the V8 C++ API.
+
+## Troubleshooting
+
+If you get an error saying that it can't find any of the following:
+
+```
+
+pkg-config
+glib-2.0
+gmodule-2.0
+gobject-2.0
+gthread-2.0
+
+```
+
+You'll need to run the following command before continuing:
+
+```
+sudo apt install -y pkg-config libglib2.0-dev
+```
+Or your distro's equivalent
