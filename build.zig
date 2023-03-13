@@ -7,13 +7,15 @@ const print = std.debug.print;
 const builtin = @import("builtin");
 const Pkg = std.build.Pkg;
 
+const fs = std.fs;
+
 pub fn build(b: *Builder) !void {
     // Options.
     //const build_v8 = b.option(bool, "build_v8", "Whether to build from v8 source") orelse false;
     const path = b.option([]const u8, "path", "Path to main file, for: build, run") orelse "";
     const use_zig_tc = b.option(bool, "zig-toolchain", "Experimental: Use zig cc/c++/ld to build v8.") orelse false;
 
-    const mode = b.standardReleaseOptions();
+    const mode = b.standardOptimizeOption(.{}); //FIXED
     const target = b.standardTargetOptions(.{});
 
     const get_tools = createGetTools(b);
@@ -360,7 +362,8 @@ fn createGetV8(b: *Builder) *std.build.LogStep {
 fn createGetTools(b: *Builder) *std.build.LogStep {
     const step = b.addLog("Get Tools\n", .{});
 
-    var sub_step = b.addSystemCommand(&.{ "python", "./tools/get_ninja_gn_binaries.py", "--dir", "./tools" });
+    //var sub_step = b.addSystemCommand(&.{ "python", "./tools/get_ninja_gn_binaries.py", "--dir", "./tools" });
+    var sub_step = b.addSystemCommand(&.{"git", "clone", "https://github.com/denoland/ninja_gn_binaries.git", "./tools"});
     step.step.dependOn(&sub_step.step);
 
     if (UseGclient) {
@@ -375,25 +378,37 @@ fn createGetTools(b: *Builder) *std.build.LogStep {
 fn getNinjaPath(b: *Builder) []const u8 {
     const platform = switch (builtin.os.tag) {
         .windows => "win",
-        .linux => "linux64",
+        .linux => "linux",
         .macos => "mac",
+        else => unreachable,
+    };
+    const arch = switch(builtin.cpu.arch){
+        .x86_64 => "amd64",
+        .aarch64 => "arm64",
         else => unreachable,
     };
     const ext = if (builtin.os.tag == .windows) ".exe" else "";
     const bin = std.mem.concat(b.allocator, u8, &.{ "ninja", ext }) catch unreachable;
-    return std.fs.path.resolve(b.allocator, &.{ "./tools/ninja_gn_binaries-20210101", platform, bin }) catch unreachable;
+    const subFolder = std.mem.concat(b.allocator, u8, &.{ platform, "-", arch }) catch unreachable;
+    return std.fs.path.resolve(b.allocator, &.{ "./tools", subFolder, bin }) catch unreachable;
 }
 
 fn getGnPath(b: *Builder) []const u8 {
     const platform = switch (builtin.os.tag) {
         .windows => "win",
-        .linux => "linux64",
+        .linux => "linux",
         .macos => "mac",
+        else => unreachable,
+    };
+    const arch = switch(builtin.cpu.arch){
+        .x86_64 => "amd64",
+        .aarch64 => "arm64",
         else => unreachable,
     };
     const ext = if (builtin.os.tag == .windows) ".exe" else "";
     const bin = std.mem.concat(b.allocator, u8, &.{ "gn", ext }) catch unreachable;
-    return std.fs.path.resolve(b.allocator, &.{ "./tools/ninja_gn_binaries-20210101", platform, bin }) catch unreachable;
+    const subFolder = std.mem.concat(b.allocator, u8, &.{ platform, "-", arch }) catch unreachable;
+    return std.fs.path.resolve(b.allocator, &.{ "./tools", subFolder, bin }) catch unreachable;
 }
 
 const MakePathStep = struct {
@@ -415,7 +430,13 @@ const MakePathStep = struct {
 
     fn make(step: *std.build.Step) anyerror!void {
         const self = @fieldParentPtr(Self, "step", step);
-        try self.b.makePath(self.path);
+        const cwd = fs.cwd();
+
+
+        const stat = try statPathFromRoot(self.b, self.path);
+        if (stat == .NotExist) {
+            try cwd.makeDir(self.path);
+        }
     }
 };
 
@@ -446,7 +467,8 @@ const CopyFileStep = struct {
 
 // TODO: Make this usable from external project.
 fn linkV8(b: *Builder, step: *std.build.LibExeObjStep, use_zig_tc: bool) void {
-    const mode = step.build_mode;
+    //const mode = step.build_mode;
+    const mode = step.optimize; //FIXED
     const target = step.target;
 
     const mode_str: []const u8 = if (mode == .Debug) "debug" else "release";
@@ -481,11 +503,19 @@ fn linkV8(b: *Builder, step: *std.build.LibExeObjStep, use_zig_tc: bool) void {
 }
 
 fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode, use_zig_tc: bool) *std.build.LibExeObjStep {
-    const step = b.addTest("./test/test.zig");
+    const step = b.addTest(
+        .{
+            .root_source_file = .{
+                .path = "./test/test.zig"
+            },
+            .target = target,
+            .optimize = mode,
+        }
+    ); //FIXED
     step.setMainPkgPath(".");
     step.addIncludePath("./src");
-    step.setTarget(target);
-    step.setBuildMode(mode);
+    //step.setTarget(target);
+    //step.setBuildMode(mode);
     step.linkLibC();
     linkV8(b, step, use_zig_tc);
     return step;
@@ -595,7 +625,7 @@ pub const GetV8SourceStep = struct {
         }
 
         // Get DEPS in json.
-        const deps_json = try self.b.execFromStep(&.{ "python", "tools/parse_deps.py", "v8/DEPS" }, &self.step);
+        const deps_json = try self.b.execFromStep(&.{ "python3", "parse_deps.py", "v8/DEPS" }, &self.step);
         defer self.b.allocator.free(deps_json);
 
         var p = json.Parser.init(self.b.allocator, false);
@@ -671,9 +701,18 @@ fn createBuildExeStep(b: *Builder, path: []const u8, target: std.zig.CrossTarget
     const i = std.mem.indexOf(u8, basename, ".zig") orelse basename.len;
     const name = basename[0..i];
 
-    const step = b.addExecutable(name, path);
-    step.setBuildMode(mode);
-    step.setTarget(target);
+    const step = b.addExecutable(
+        .{
+            .target = target,
+            .root_source_file = .{
+                .path = path,
+            },
+            .name = name,
+            .optimize = mode,
+        }
+    ); //FIXED
+    //step.setBuildMode(mode);
+    //step.setTarget(target);
 
     step.linkLibC();
     step.addIncludePath("src");
