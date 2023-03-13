@@ -93,12 +93,12 @@ jobs:
       - name: Install zig.
         if: env.BUILD_HOST == 'ubuntu-22.04'
         run: |
-          wget -c https://ziglang.org/builds/zig-linux-x86_64-0.11.0-dev.944+a193ec432.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin
+          wget -c https://ziglang.org/builds/zig-linux-x86_64-0.11.0-dev.1797+d3c9bfada.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin
 
       - name: Install zig.
         if: env.BUILD_HOST == 'macos-12'
         run: |
-          wget -c https://ziglang.org/builds/zig-macos-x86_64-0.11.0-dev.944+a193ec432.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin
+          wget -c https://ziglang.org/builds/zig-macos-x86_64-0.11.0-dev.1797+d3c9bfada.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin
           xcode-select --print-path
 
       - name: Cache.
@@ -160,11 +160,11 @@ jobs:
 
       - name: Build release.
         if: env.BUILD_MODE == 'release' && env.BUILD_TOOLCHAIN == 'v8'
-        run: zig build -Drelease-safe ${{ env.ZIG_TARGET_FLAG }}
+        run: zig build -Doptimize=ReleaseSafe ${{ env.ZIG_TARGET_FLAG }}
 
       - name: Build release.
         if: env.BUILD_MODE == 'release' && env.BUILD_TOOLCHAIN == 'zig'
-        run: zig build -Drelease-safe ${{ env.ZIG_TARGET_FLAG }} -Dzig-toolchain
+        run: zig build -Doptimize=ReleaseSafe ${{ env.ZIG_TARGET_FLAG }} -Dzig-toolchain
 
       - name: Build debug.
         if: env.BUILD_MODE == 'debug'
