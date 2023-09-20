@@ -23,7 +23,11 @@ pub fn build(b: *Builder) !void {
 
     const v8 = try createV8_Build(b, target, mode, use_zig_tc);
 
-    // _ = createTest(b, target, mode, use_zig_tc);
+    const tests = createTest(b, target, mode, use_zig_tc);
+    tests.step.dependOn(v8);
+
+    const test_step = b.addRunArtifact(tests);
+    b.step("test", "Run unit tests").dependOn(&test_step.step);
 
     const build_exe = createBuildExeStep(b, path, target, mode, use_zig_tc);
 
@@ -471,7 +475,7 @@ const CopyFileStep = struct {
 };
 
 // TODO: Make this usable from external project.
-fn linkV8(b: *Builder, step: *std.build.LibExeObjStep, use_zig_tc: bool) void {
+fn linkV8(b: *Builder, step: *std.build.CompileStep, use_zig_tc: bool) void {
     //const mode = step.build_mode;
     const mode = step.optimize; //FIXED
     const target = step.target;
@@ -507,20 +511,19 @@ fn linkV8(b: *Builder, step: *std.build.LibExeObjStep, use_zig_tc: bool) void {
     }
 }
 
-fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode, use_zig_tc: bool) *std.build.LibExeObjStep {
-    _ = b.step("test", "Run tests.");
-
+fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode, use_zig_tc: bool) *std.build.CompileStep {
     const step = b.addTest(.{
-        .root_source_file = .{ .path = "./test/test.zig" },
+        .root_source_file = .{ .path = "test/test.zig" },
+        .main_pkg_path = .{ .path = "." },
         .target = target,
         .optimize = mode,
     }); //FIXED
-    //step.setMainPkgPath(".");
-    step.addIncludePath("./src");
-    //step.setTarget(target);
-    //step.setBuildMode(mode);
+
+    step.addIncludePath(.{ .path = "src" });
     step.linkLibC();
+
     linkV8(b, step, use_zig_tc);
+
     return step;
 }
 
@@ -727,10 +730,6 @@ fn createBuildExeStep(b: *Builder, path: []const u8, target: std.zig.CrossTarget
 
     step.linkLibC();
     step.addIncludePath(.{ .path = "src" });
-
-    //const output_dir_rel = std.fmt.allocPrint(b.allocator, "zig-out/{s}", .{name}) catch unreachable;
-    //const output_dir = b.pathFromRoot(output_dir_rel);
-    //step.setOutputDir(output_dir);
 
     if (mode == .ReleaseSafe) {
         step.strip = true;
