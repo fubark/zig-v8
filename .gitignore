@@ -6,3 +6,4 @@
 /zig-out/
 /vendor
 /libc_v8.a
+/tools/

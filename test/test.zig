@@ -8,7 +8,7 @@ test {
     const platform = v8.Platform.initDefault(0, true);
     defer platform.deinit();
 
-    std.debug.print("v8 version: {s}\n", .{v8.getVersion()});
+    std.log.info("v8 version: {s}\n", .{v8.getVersion()});
 
     v8.initV8Platform(platform);
     v8.initV8();
