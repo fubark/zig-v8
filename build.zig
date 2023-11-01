@@ -591,18 +591,23 @@ pub const GetV8SourceStep = struct {
 
         const stat = try statPathFromRoot(self.b, local_path);
         if (stat == .NotExist) {
-            _ = self.b.exec(&.{ "git", "clone", dep.repo_url, local_path });
+            _ = self.b.run(&.{ "git", "clone", dep.repo_url, local_path });
         }
-        _ = self.b.exec(&.{ "git", "-C", local_path, "checkout", dep.repo_rev });
+        _ = self.b.run(&.{ "git", "-C", local_path, "checkout", dep.repo_rev });
         if (stat == .NotExist) {
             // Apply patch for v8/build
             if (std.mem.eql(u8, key, "build")) {
-                _ = self.b.exec(&.{ "git", "apply", "--ignore-space-change", "--ignore-whitespace", "patches/v8_build.patch", "--directory=v8/build" });
+                _ = self.b.run(&.{ "git", "apply", "--ignore-space-change", "--ignore-whitespace", "patches/v8_build.patch", "--directory=v8/build" });
             }
         }
     }
 
     fn runHook(self: *Self, hooks: json.Value, name: []const u8) !void {
+        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+        const alloc = gpa.allocator();
+
+        defer _ = gpa.deinit();
+
         for (hooks.array.items) |hook| {
             if (std.mem.eql(u8, name, hook.object.get("name").?.string)) {
                 const cmd = hook.object.get("action").?.array;
@@ -612,12 +617,11 @@ pub const GetV8SourceStep = struct {
                     try args.append(it.string);
                 }
                 const cwd = self.b.pathFromRoot("v8");
-                const alloc = std.heap.c_allocator;
 
                 const cmd_path = try std.fmt.allocPrint(alloc, "{s}/{s}", .{ cwd, args.items[1] });
                 defer alloc.free(cmd_path);
 
-                _ = self.b.exec(&.{ args.items[0], cmd_path });
+                _ = self.b.run(&.{ args.items[0], cmd_path });
                 break;
             }
         }
@@ -636,13 +640,13 @@ pub const GetV8SourceStep = struct {
         // Clone V8.
         const stat = try statPathFromRoot(self.b, "v8");
         if (stat == .NotExist) {
-            _ = self.b.exec(&.{ "git", "clone", "--depth=1", "--branch", v8_rev, "https://chromium.googlesource.com/v8/v8.git", "v8" });
+            _ = self.b.run(&.{ "git", "clone", "--depth=1", "--branch", v8_rev, "https://chromium.googlesource.com/v8/v8.git", "v8" });
             // Apply patch for v8 root.
-            _ = self.b.exec(&.{ "git", "apply", "--ignore-space-change", "--ignore-whitespace", "patches/v8.patch", "--directory=v8" });
+            _ = self.b.run(&.{ "git", "apply", "--ignore-space-change", "--ignore-whitespace", "patches/v8.patch", "--directory=v8" });
         }
 
         // Get DEPS in json.
-        const deps_json = self.b.exec(&.{ "python3", "parse_deps.py", "v8/DEPS" });
+        const deps_json = self.b.run(&.{ "python3", "parse_deps.py", "v8/DEPS" });
         defer self.b.allocator.free(deps_json);
 
         var tree = try json.parseFromSlice(json.Value, self.b.allocator, deps_json, .{});
