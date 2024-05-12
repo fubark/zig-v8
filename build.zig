@@ -1,8 +1,7 @@
 const std = @import("std");
 const json = std.json;
-const Builder = std.build.Builder;
-const LibExeObjStep = std.build.LibExeObjStep;
-const Step = std.build.Step;
+const Builder = std.Build;
+const Step = std.Build.Step;
 const print = std.debug.print;
 const builtin = @import("builtin");
 const Pkg = std.build.Pkg;
@@ -48,7 +47,7 @@ const UseGclient = false;
 // V8's build process is complex and porting it to zig could take quite awhile.
 // It would be nice if there was a way to import .gn files into the zig build system.
 // For now we just use gn/ninja like rusty_v8 does: https://github.com/denoland/rusty_v8/blob/main/build.rs
-fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode, use_zig_tc: bool) !*std.build.Step {
+fn createV8_Build(b: *Builder, target: std.Build.ResolvedTarget, mode: std.builtin.OptimizeMode, use_zig_tc: bool) !*std.Build.Step {
     const step = b.step("v8", "Build v8 c binding lib.");
 
     if (UseGclient) {
@@ -67,19 +66,19 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
     var gn_args = std.ArrayList([]const u8).init(b.allocator);
 
-    switch (target.getOsTag()) {
+    switch (target.result.os.tag) {
         .macos => try gn_args.append("target_os=\"mac\""),
         .windows => {
             try gn_args.append("target_os=\"win\"");
             if (!UseGclient) {
                 // Don't use depot_tools.
-                try b.env_map.put("DEPOT_TOOLS_WIN_TOOLCHAIN", "0");
+                try b.graph.env_map.put("DEPOT_TOOLS_WIN_TOOLCHAIN", "0");
             }
         },
         .linux => try gn_args.append("target_os=\"linux\""),
         else => {},
     }
-    switch (target.getCpuArch()) {
+    switch (target.result.cpu.arch) {
         .x86_64 => try gn_args.append("target_cpu=\"x64\""),
         .aarch64 => try gn_args.append("target_cpu=\"arm64\""),
         else => {},
@@ -135,8 +134,8 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
     if (use_zig_tc) {
         // Set target and cpu for building the lib.
         // TODO: If mcpu is equavalent to -Dcpu then use that instead
-        try zig_cc.append(b.fmt("zig cc --target={s} -mcpu=baseline", .{try target.zigTriple(b.allocator)}));
-        try zig_cxx.append(b.fmt("zig c++ --target={s} -mcpu=baseline", .{try target.zigTriple(b.allocator)}));
+        try zig_cc.append(b.fmt("zig cc --target={s} -mcpu=baseline", .{try target.result.zigTriple(b.allocator)}));
+        try zig_cxx.append(b.fmt("zig c++ --target={s} -mcpu=baseline", .{try target.result.zigTriple(b.allocator)}));
 
         try host_zig_cc.append("zig cc --target=native");
         try host_zig_cxx.append("zig c++ --target=native");
@@ -151,11 +150,11 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         try zig_cc.append("-mcrc32");
         try zig_cxx.append("-mcrc32");
 
-        if (target.getOsTag() == .windows and target.getAbi() == .gnu) {
+        if (target.result.os.tag == .windows and target.result.abi == .gnu) {
             // V8 expects __declspec(dllexport) to not expand in it's test in src/base/export-template.h but it does when compiling with mingw.
             try zig_cxx.append("-DEXPORT_TEMPLATE_TEST_MSVC_HACK_DEFAULT\\(...\\)=true");
         }
-        if (target.getOsTag() == .windows and builtin.os.tag != .windows) {
+        if (target.result.os.tag == .windows and builtin.os.tag != .windows) {
             // Cross building to windows probably is case sensitive to header files, so provide them in include.
             // Note: Directory is relative to ninja build folder.
             try zig_cxx.append("-I../../../../cross-windows");
@@ -194,12 +193,12 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
         // custom_toolchain is how we can set zig as the cc/cxx compiler and linker.
         try gn_args.append("custom_toolchain=\"//zig:main_zig_toolchain\"");
 
-        if (target.getOsTag() == .linux and target.getCpuArch() == .x86_64) {
+        if (target.result.os.tag == .linux and target.result.cpu.arch == .x86_64) {
             // Should add target flags that matches: //build/config/compiler:compiler_cpu_abi
             try zig_cc.append("-m64");
             try zig_cxx.append("-m64");
-        } else if (target.getOsTag() == .macos) {
-            if (!target.isNative()) {
+        } else if (target.result.os.tag == .macos) {
+            if (!target.query.isNative()) {
                 // Cross compiling.
                 const sysroot_abs = b.pathFromRoot("./cross-macos/sysroot/macos-12/usr/include");
                 try zig_cc.append("-isystem");
@@ -208,7 +207,7 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
                 try zig_cxx.append(sysroot_abs);
             }
         }
-        if (builtin.cpu.arch != target.getCpuArch() or builtin.os.tag != target.getOsTag()) {
+        if (builtin.cpu.arch != target.result.cpu.arch or builtin.os.tag != target.result.os.tag) {
             try gn_args.append("v8_snapshot_toolchain=\"//zig:v8_zig_toolchain\"");
         }
 
@@ -237,13 +236,13 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
 
     // sccache, currently does not work with zig cc
     if (!use_zig_tc) {
-        if (b.env_map.get("SCCACHE")) |path| {
+        if (b.graph.env_map.get("SCCACHE")) |path| {
             const cc_wrapper = try std.fmt.allocPrint(b.allocator, "cc_wrapper=\"{s}\"", .{path});
             try gn_args.append(cc_wrapper);
         } else {
             if (builtin.os.tag == .windows) {
                 // findProgram look for "PATH" case sensitive.
-                try b.env_map.put("PATH", b.env_map.get("Path") orelse "");
+                try b.graph.env_map.put("PATH", b.graph.env_map.get("Path") orelse "");
             }
             if (b.findProgram(&.{"sccache"}, &.{})) |_| {
                 const cc_wrapper = try std.fmt.allocPrint(b.allocator, "cc_wrapper=\"{s}\"", .{"sccache"});
@@ -256,7 +255,7 @@ fn createV8_Build(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mo
             if (builtin.os.tag == .windows) {
                 // After creating PATH for windows so findProgram can find sccache, we need to delete it
                 // or a gn tool (build/toolchain/win/setup_toolchain.py) will complain about not finding cl.exe.
-                b.env_map.remove("PATH");
+                b.graph.env_map.remove("PATH");
             }
         }
     }
@@ -303,8 +302,8 @@ fn getArchOs(alloc: std.mem.Allocator, arch: std.Target.Cpu.Arch, os: std.Target
     return std.fmt.allocPrint(alloc, "{s}-{s}-gnu", .{ @tagName(arch), @tagName(os) }) catch unreachable;
 }
 
-fn getTargetId(alloc: std.mem.Allocator, target: std.zig.CrossTarget) []const u8 {
-    return std.fmt.allocPrint(alloc, "{s}-{s}", .{ @tagName(target.getCpuArch()), @tagName(target.getOsTag()) }) catch unreachable;
+fn getTargetId(alloc: std.mem.Allocator, target: std.Build.ResolvedTarget) []const u8 {
+    return std.fmt.allocPrint(alloc, "{s}-{s}", .{ @tagName(target.result.cpu.arch), @tagName(target.result.os.tag) }) catch unreachable;
 }
 
 const CheckV8DepsStep = struct {
@@ -323,7 +322,7 @@ const CheckV8DepsStep = struct {
     }
 
     fn make(step: *Step) !void {
-        const self = @fieldParentPtr(Self, "step", step);
+        const self: *Self = @fieldParentPtr("step", step);
 
         const output = try self.b.execFromStep(&.{ "clang", "--version" }, step);
         print("clang: {s}", .{output});
@@ -339,7 +338,7 @@ const CheckV8DepsStep = struct {
     }
 };
 
-fn createGetV8(b: *Builder) *std.build.Step {
+fn createGetV8(b: *Builder) *std.Build.Step {
     const step = b.step("get-v8", "Gets v8 source using gclient.");
 
     if (UseGclient) {
@@ -358,7 +357,7 @@ fn createGetV8(b: *Builder) *std.build.Step {
     return step;
 }
 
-fn createGetTools(b: *Builder) *std.build.Step {
+fn createGetTools(b: *Builder) *std.Build.Step {
     const step = b.step("get-tools", "Gets the build tools.");
 
     //var sub_step = b.addSystemCommand(&.{ "python", "./tools/get_ninja_gn_binaries.py", "--dir", "./tools" });
@@ -413,14 +412,14 @@ fn getGnPath(b: *Builder) []const u8 {
 const MakePathStep = struct {
     const Self = @This();
 
-    step: std.build.Step,
+    step: std.Build.Step,
     b: *Builder,
     path: []const u8,
 
     fn create(b: *Builder, root_path: []const u8) *Self {
         const new = b.allocator.create(Self) catch unreachable;
         new.* = .{
-            .step = std.build.Step.init(.{
+            .step = std.Build.Step.init(.{
                 .id = .custom,
                 .name = b.fmt("make-path", .{}),
                 .owner = b,
@@ -431,9 +430,9 @@ const MakePathStep = struct {
         };
         return new;
     }
-    fn make(step: *std.build.Step, prog_node: *std.Progress.Node) anyerror!void {
+    fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
         _ = prog_node;
-        const self = @fieldParentPtr(Self, "step", step);
+        const self: *Self = @fieldParentPtr("step", step);
         const cwd = fs.cwd();
 
         const stat = try statPathFromRoot(self.b, self.path);
@@ -446,7 +445,7 @@ const MakePathStep = struct {
 const CopyFileStep = struct {
     const Self = @This();
 
-    step: std.build.Step,
+    step: std.Build.Step,
     b: *Builder,
     src_path: []const u8,
     dst_path: []const u8,
@@ -454,7 +453,7 @@ const CopyFileStep = struct {
     fn create(b: *Builder, src_path: []const u8, dst_path: []const u8) *Self {
         const new = b.allocator.create(Self) catch unreachable;
         new.* = .{
-            .step = std.build.Step.init(.{
+            .step = std.Build.Step.init(.{
                 .id = .custom,
                 .name = b.fmt("cp", .{}),
                 .owner = b,
@@ -467,21 +466,17 @@ const CopyFileStep = struct {
         return new;
     }
 
-    fn make(step: *std.build.Step, prog_node: *std.Progress.Node) anyerror!void {
+    fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
         _ = prog_node;
-        const self = @fieldParentPtr(Self, "step", step);
+        const self: *Self = @fieldParentPtr("step", step);
         try std.fs.copyFileAbsolute(self.src_path, self.dst_path, .{});
     }
 };
 
 // TODO: Make this usable from external project.
-fn linkV8(b: *Builder, step: *std.build.CompileStep, use_zig_tc: bool) void {
-    //const mode = step.build_mode;
-    const mode = step.optimize; //FIXED
-    const target = step.target;
-
+fn linkV8(b: *Builder, step: *std.Build.Step.Compile, mode: std.builtin.OptimizeMode, target: std.Build.ResolvedTarget, use_zig_tc: bool) void {
     const mode_str: []const u8 = if (mode == .Debug) "debug" else "release";
-    const lib: []const u8 = if (target.getOsTag() == .windows and target.getAbi() == .msvc) "c_v8.lib" else "libc_v8.a";
+    const lib: []const u8 = if (target.result.os.tag == .windows and target.result.abi == .msvc) "c_v8.lib" else "libc_v8.a";
     const lib_path = std.fmt.allocPrint(b.allocator, "./v8-build/{s}/{s}/ninja/obj/zig/{s}", .{
         getTargetId(b.allocator, target),
         mode_str,
@@ -494,8 +489,8 @@ fn linkV8(b: *Builder, step: *std.build.CompileStep, use_zig_tc: bool) void {
             step.linkLibCpp();
         }
         step.linkSystemLibrary("unwind");
-    } else if (target.getOsTag() == .windows) {
-        if (target.getAbi() == .gnu) {
+    } else if (target.result.os.tag == .windows) {
+        if (target.result.abi == .gnu) {
             step.linkLibCpp();
         } else {
             step.linkSystemLibrary("Dbghelp");
@@ -511,10 +506,9 @@ fn linkV8(b: *Builder, step: *std.build.CompileStep, use_zig_tc: bool) void {
     }
 }
 
-fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode, use_zig_tc: bool) *std.build.CompileStep {
+fn createTest(b: *Builder, target: std.Build.ResolvedTarget, mode: std.builtin.OptimizeMode, use_zig_tc: bool) *std.Build.Step.Compile {
     const step = b.addTest(.{
-        .root_source_file = .{ .path = "test/test.zig" },
-        .main_pkg_path = .{ .path = "." },
+        .root_source_file = .{ .path = "src/test.zig" },
         .target = target,
         .optimize = mode,
     }); //FIXED
@@ -522,7 +516,7 @@ fn createTest(b: *Builder, target: std.zig.CrossTarget, mode: std.builtin.Mode, 
     step.addIncludePath(.{ .path = "src" });
     step.linkLibC();
 
-    linkV8(b, step, use_zig_tc);
+    linkV8(b, step, mode, target, use_zig_tc);
 
     return step;
 }
@@ -629,7 +623,7 @@ pub const GetV8SourceStep = struct {
 
     fn make(step: *Step, prog_node: *std.Progress.Node) !void {
         _ = prog_node;
-        const self = @fieldParentPtr(Self, "step", step);
+        const self: *Self = @fieldParentPtr("step", step);
 
         // Pull the minimum source we need by looking at DEPS.
         // TODO: Check if we have the right branches, otherwise reclone.
@@ -652,8 +646,8 @@ pub const GetV8SourceStep = struct {
         var tree = try json.parseFromSlice(json.Value, self.b.allocator, deps_json, .{});
         defer tree.deinit();
 
-        var deps = tree.value.object.get("deps").?;
-        var hooks = tree.value.object.get("hooks").?;
+        const deps = tree.value.object.get("deps").?;
+        const hooks = tree.value.object.get("hooks").?;
 
         // build
         try self.getDep(deps, "build", "v8/build");
@@ -714,7 +708,7 @@ pub const GetV8SourceStep = struct {
     }
 };
 
-fn createBuildExeStep(b: *Builder, path: []const u8, target: std.zig.CrossTarget, mode: std.builtin.Mode, use_zig_tc: bool) *LibExeObjStep {
+fn createBuildExeStep(b: *Builder, path: []const u8, target: std.Build.ResolvedTarget, mode: std.builtin.OptimizeMode, use_zig_tc: bool) *std.Build.Step.Compile {
     _ = b.step("exe", "Build exe with main file at -Dpath");
 
     const basename = std.fs.path.basename(path);
@@ -736,10 +730,10 @@ fn createBuildExeStep(b: *Builder, path: []const u8, target: std.zig.CrossTarget
     step.addIncludePath(.{ .path = "src" });
 
     if (mode == .ReleaseSafe) {
-        step.strip = true;
+        step.root_module.strip = true;
     }
 
-    linkV8(b, step, use_zig_tc);
+    linkV8(b, step, mode, target, use_zig_tc);
 
     return step;
 }

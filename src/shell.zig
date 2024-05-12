@@ -120,9 +120,9 @@ pub fn executeString(alloc: std.mem.Allocator, isolate: v8.Isolate, src: []const
     try_catch.init(isolate);
     defer try_catch.deinit();
 
-    var origin = v8.ScriptOrigin.initDefault(isolate, src_origin.toValue());
+    const origin = v8.ScriptOrigin.initDefault(isolate, src_origin.toValue());
 
-    var context = isolate.getCurrentContext();
+    const context = isolate.getCurrentContext();
 
     const js_src = v8.String.initUtf8(isolate, src);
 
