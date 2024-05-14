@@ -1,6 +1,6 @@
 const std = @import("std");
 const t = std.testing;
-const v8 = @import("../src/v8.zig");
+const v8 = @import("./v8.zig");
 
 test {
     // Based on https://chromium.googlesource.com/v8/v8/+/branch-heads/6.8/samples/hello-world.cc
