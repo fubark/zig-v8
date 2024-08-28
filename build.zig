@@ -430,7 +430,7 @@ const MakePathStep = struct {
         };
         return new;
     }
-    fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
+    fn make(step: *std.Build.Step, prog_node: std.Progress.Node) anyerror!void {
         _ = prog_node;
         const self: *Self = @fieldParentPtr("step", step);
         const cwd = fs.cwd();
@@ -466,7 +466,7 @@ const CopyFileStep = struct {
         return new;
     }
 
-    fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
+    fn make(step: *std.Build.Step, prog_node: std.Progress.Node) anyerror!void {
         _ = prog_node;
         const self: *Self = @fieldParentPtr("step", step);
         try std.fs.copyFileAbsolute(self.src_path, self.dst_path, .{});
@@ -482,7 +482,7 @@ fn linkV8(b: *Builder, step: *std.Build.Step.Compile, mode: std.builtin.Optimize
         mode_str,
         lib,
     }) catch unreachable;
-    step.addAssemblyFile(.{ .path = lib_path });
+    step.addAssemblyFile(b.path(lib_path));
     if (builtin.os.tag == .linux) {
         if (use_zig_tc) {
             // TODO: This should be linked already when we built v8.
@@ -500,7 +500,7 @@ fn linkV8(b: *Builder, step: *std.Build.Step.Compile, mode: std.builtin.Optimize
             // We need libcpmt to statically link with c++ stl for exception_ptr references from V8.
             // Zig already adds the SDK path to the linker but doesn't sync it to the internal libs array which linkSystemLibrary checks against.
             // For now we'll hardcode the MSVC path here.
-            step.addLibraryPath(.{ .path = "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.29.30133/lib/x64" });
+            step.addLibraryPath(b.path("C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.29.30133/lib/x64"));
             step.linkSystemLibrary("libcpmt");
         }
     }
@@ -508,12 +508,12 @@ fn linkV8(b: *Builder, step: *std.Build.Step.Compile, mode: std.builtin.Optimize
 
 fn createTest(b: *Builder, target: std.Build.ResolvedTarget, mode: std.builtin.OptimizeMode, use_zig_tc: bool) *std.Build.Step.Compile {
     const step = b.addTest(.{
-        .root_source_file = .{ .path = "src/test.zig" },
+        .root_source_file = b.path("src/test.zig"),
         .target = target,
         .optimize = mode,
     }); //FIXED
 
-    step.addIncludePath(.{ .path = "src" });
+    step.addIncludePath(b.path("src"));
     step.linkLibC();
 
     linkV8(b, step, mode, target, use_zig_tc);
@@ -621,7 +621,7 @@ pub const GetV8SourceStep = struct {
         }
     }
 
-    fn make(step: *Step, prog_node: *std.Progress.Node) !void {
+    fn make(step: *Step, prog_node: std.Progress.Node) !void {
         _ = prog_node;
         const self: *Self = @fieldParentPtr("step", step);
 
@@ -717,9 +717,7 @@ fn createBuildExeStep(b: *Builder, path: []const u8, target: std.Build.ResolvedT
 
     const step = b.addExecutable(.{
         .target = target,
-        .root_source_file = .{
-            .path = path,
-        },
+        .root_source_file = b.path(path),
         .name = name,
         .optimize = mode,
     }); //FIXED
@@ -727,7 +725,7 @@ fn createBuildExeStep(b: *Builder, path: []const u8, target: std.Build.ResolvedT
     //step.setTarget(target);
 
     step.linkLibC();
-    step.addIncludePath(.{ .path = "src" });
+    step.addIncludePath(b.path("src"));
 
     if (mode == .ReleaseSafe) {
         step.root_module.strip = true;
